@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2 — 2026-08-26
+
+- Removed maximum UV difference from the panel, Advanced sub-panel and operator reports.
+- Replaced the initial empty result box with one compact `Results will appear here` info line.
+- Kept Advanced focused on the tolerance setting only.
+
 ## 0.4.1 — 2026-08-26
 
 - Removed the redundant UV Sync Selection status line from the panel.

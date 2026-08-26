@@ -91,7 +91,7 @@ def test_tolerance_without_rounding_bins(addon):
     assert result.status == "MATCH", result.message
     assert result.headline == "Match — Same orientation"
     assert result.detail == ""
-    assert result.technical.startswith("Max UV difference:")
+    assert "difference" not in result.message.lower()
     bm.free()
 
 
@@ -120,27 +120,28 @@ def test_panel_state_registration(addon):
     try:
         assert hasattr(bpy.types.WindowManager, "rizum_uv_compare_last_headline")
         assert hasattr(bpy.types.WindowManager, "rizum_uv_compare_last_detail")
-        assert hasattr(bpy.types.WindowManager, "rizum_uv_compare_last_technical")
+        assert not hasattr(bpy.types.WindowManager, "rizum_uv_compare_last_technical")
         assert not hasattr(bpy.types.WindowManager, "rizum_uv_compare_last_result")
         assert addon.UV_PT_rizum_compare_advanced.bl_parent_id == "UV_PT_rizum_compare"
         assert "DEFAULT_CLOSED" in addon.UV_PT_rizum_compare_advanced.bl_options
         panel_source = inspect.getsource(addon.UV_PT_rizum_compare.draw)
         assert "UV Sync on" not in panel_source
         assert "UV Sync off" not in panel_source
+        assert "Results will appear here" in panel_source
+        assert "No comparison yet" not in panel_source
+        assert "Max UV difference" not in inspect.getsource(addon)
 
         result = addon.CompareResult(
             "MATCH",
             "Exact match.",
             "Match — Same orientation",
             "",
-            "Max UV difference: 0",
         )
         addon.store_result(bpy.context, result)
         wm = bpy.context.window_manager
         assert wm.rizum_uv_compare_last_status == "MATCH"
         assert wm.rizum_uv_compare_last_headline == result.headline
         assert wm.rizum_uv_compare_last_detail == result.detail
-        assert wm.rizum_uv_compare_last_technical == result.technical
     finally:
         addon.unregister()
 
@@ -161,7 +162,7 @@ def test_structured_copy_contract(addon):
     )
     assert result.status == "NO_MATCH"
     assert result.detail == "Different UV loop counts (4 vs 3)."
-    assert result.technical == "Different UV loop counts: 4 vs 3."
+    assert result.message == "Different UV loop counts: 4 vs 3."
     bm.free()
 
 

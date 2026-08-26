@@ -92,6 +92,7 @@
   }
   .op:hover { background: #606060; }
   .op:active { background: #4772b3; border-color: #2e4a6e; }
+  .op.toggle.on { background: #4772b3; border-color: #2e4a6e; }
   .op.big { height: 30px; }
   .op.disabled, .op.disabled:hover, .op.disabled:active {
     opacity: .45; cursor: default; background: #545454; border-color: #282828;
@@ -224,8 +225,8 @@
           <option value="shape">Pair: different shape / deformation</option>
           <option value="faces">Pair: different face counts (12 vs 10)</option>
         </select>
-        <button class="r-btn" id="btnReset">Reset result → “No comparison yet”</button>
-        <div class="r-note">The result persists until Compare is pressed again — exactly like the add-on. Changing selection here does not clear it.</div>
+        <button class="r-btn" id="btnReset">Reset result</button>
+        <div class="r-note">With Auto Compare on, a new valid two-island pair updates the result. Intermediate invalid selections stay silent and keep the last result.</div>
       </div>
     </div>
 
@@ -271,6 +272,8 @@ var state = {
   pair: "mirrored",
   tolerance: 1e-5,
   advancedOpen: false,
+  autoCompare: false,
+  autoSignature: null,
   refreshFlash: false,
   last: null  /* null => NONE; else {status, headline, detail} */
 };
@@ -324,6 +327,7 @@ function icon(name) {
   if (name === "unlinked"){ inner = '<path d="M7.5 4.5 L9 3 A2.2 2.2 0 0 1 12.1 6.1 L11.3 6.9"/><path d="M8.5 11.5 L7 13 A2.2 2.2 0 0 1 3.9 9.9 L4.7 9.1"/><path d="M3 3 L13 13"/>'; }
   if (name === "viewzoom"){ inner = '<circle cx="7" cy="7" r="4"/><path d="M10 10 L13.5 13.5"/>'; }
   if (name === "uv")      { inner = '<rect x="3" y="3" width="10" height="10"/><path d="M8 3 L8 13 M3 8 L13 8"/>'; }
+  if (name === "auto")    { inner = '<path d="M8 2.5 L13.5 8 L8 13.5 L2.5 8 Z"/><circle cx="8" cy="8" r="1.2"/>'; }
   var attrs = "";
   Object.keys(p).forEach(function (k) { attrs += " " + k + '="' + p[k] + '"'; });
   return "<svg" + attrs + ">" + inner + "</svg>";
@@ -334,6 +338,13 @@ function compareButton(big) {
   var cls = "op" + (big ? " big" : "") + (state.editMode ? "" : " disabled");
   return '<button class="' + cls + '" data-act="compare">' +
          icon("viewzoom") + "<span>Compare Selected Islands</span></button>";
+}
+
+function autoCompareToggle() {
+  var cls = "op toggle" + (state.autoCompare ? " on" : "") + (state.editMode ? "" : " disabled");
+  return '<button class="' + cls + '" data-act="toggleAuto" aria-pressed="' +
+         (state.autoCompare ? "true" : "false") + '">' + icon("auto") +
+         '<span>Auto Compare</span></button>';
 }
 
 function resultBox(showNoneHint) {
@@ -376,6 +387,21 @@ function runComparison() {
   render();
 }
 
+function maybeAutoCompare() {
+  if (!state.autoCompare || !state.editMode || !state.hasUVMap || state.islands !== 2) {
+    state.autoSignature = null;
+    render();
+    return;
+  }
+  var signature = [state.pair, state.sync ? 1 : 0, state.tolerance].join("|");
+  if (state.autoSignature === signature) {
+    render();
+    return;
+  }
+  state.autoSignature = signature;
+  runComparison();
+}
+
 function toleranceRow() {
   return '<div class="num-row"><span class="num-label">Tolerance</span>' +
          '<span class="num-field"><input id="tolInput" value="' + fmtTol(state.tolerance) +
@@ -394,12 +420,14 @@ function subPanel(title, bodyHtml) {
 function renderA() {
   return '<div class="hint-label">' + icon("uv") + "<span>Select two complete UV islands.</span></div>" +
          '<div class="box">' + toleranceRow() + "</div>" +
+         autoCompareToggle() +
          compareButton(true) +
          resultBox(false);
 }
 
 function renderB() {
-  return compareButton(true) +
+  return autoCompareToggle() +
+         compareButton(true) +
          (state.last ? resultBox(false) : '<div class="hint-label">' + icon("info") + '<span>Results will appear here</span></div>') +
          subPanel("Advanced", toleranceRow()) +
          '<div class="rowline dim" style="font-size:10px">Recommended layout — see KIMI_UI_DECISION.md<span class="rec-tag">RECOMMENDED</span></div>';
@@ -407,6 +435,7 @@ function renderB() {
 
 function renderC() {
   return resultBox(true) +
+         autoCompareToggle() +
          compareButton(false) +
          subPanel("Details", toleranceRow());
 }
@@ -450,6 +479,11 @@ document.getElementById("panelBody").addEventListener("click", function (ev) {
   if (act === "compare" && state.editMode) {
     runComparison();
   }
+  if (act === "toggleAuto" && state.editMode) {
+    state.autoCompare = !state.autoCompare;
+    state.autoSignature = null;
+    maybeAutoCompare();
+  }
   if (act === "toggleAdvanced") {
     state.advancedOpen = !state.advancedOpen;
     render();
@@ -463,19 +497,20 @@ document.getElementById("panelBody").addEventListener("change", function (ev) {
   v = Math.min(1e-2, Math.max(1e-8, v));
   state.tolerance = v;
   ev.target.value = fmtTol(v);
+  maybeAutoCompare();
 });
 
 document.getElementById("chkEdit").addEventListener("change", function (ev) {
-  state.editMode = ev.target.checked; render();
+  state.editMode = ev.target.checked; maybeAutoCompare();
 });
 document.getElementById("chkUV").addEventListener("change", function (ev) {
-  state.hasUVMap = ev.target.checked; render();
+  state.hasUVMap = ev.target.checked; maybeAutoCompare();
 });
 document.getElementById("chkSync").addEventListener("change", function (ev) {
-  state.sync = ev.target.checked; render();
+  state.sync = ev.target.checked; maybeAutoCompare();
 });
 document.getElementById("selPair").addEventListener("change", function (ev) {
-  state.pair = ev.target.value; render();
+  state.pair = ev.target.value; maybeAutoCompare();
 });
 document.getElementById("btnReset").addEventListener("click", function () {
   if (refreshTimer !== null) { clearTimeout(refreshTimer); refreshTimer = null; }
@@ -488,7 +523,7 @@ var seg = document.querySelectorAll(".review .seg button");
 for (var k = 0; k < seg.length; k++) {
   seg[k].addEventListener("click", function () {
     state.islands = Number(this.getAttribute("data-isl"));
-    render();
+    maybeAutoCompare();
   });
 }
 

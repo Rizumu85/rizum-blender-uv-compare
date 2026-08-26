@@ -8,7 +8,7 @@
 
 ## 1. 最终推荐：Variant B（Action-first）
 
-**面板自上而下：Compare 按钮 → 初始提示/实际结果 → 折叠的 Advanced 子面板（仅容差）。**
+**面板自上而下：Auto Compare 开关 → Compare 按钮 → 初始提示/实际结果 → 折叠的 Advanced 子面板（仅容差）。**
 
 > 用户查看原型后的最终裁决：删除插件内的 Sync 状态行。插件在 Sync 开/关时均可工作，当前状态已经由 Blender UV Editor 顶栏表达，面板不重复显示。
 >
@@ -17,10 +17,12 @@
 > 第三次裁决（K3 high）：不使用 `self.report`。每次比较后，持久结果框在原位显示 `FILE_REFRESH · Updated`，再恢复实际结果。连续点击只刷新最新时间戳；旧 timer 不得提前恢复。
 >
 > 第四次裁决（K3 high）：刷新反馈时长定为 0.4 秒。它能被稳定察觉，同时不会拖慢结果阅读。
+>
+> 第五次裁决（K3 high）：`Auto Compare` 进入主面板并放在手动 Compare 按钮正上方，使用 `toggle=True` 与 `AUTO` icon。手动按钮始终保留且不置灰；不增加等待状态说明行。自动模式只在新的有效双岛选择出现时更新，换岛中间状态静默保留上次结果。
 
 为什么是 B：
 
-- 高频工作流是“换一对岛 → 再按一次 Compare”（后端能力 9）。按钮固定在面板顶部、结果紧随其后，鼠标与视线的移动距离最短，每次操作落点不变。
+- 高频工作流可直接开启 Auto Compare 后不断换岛；需要强制重跑时，紧邻的手动 Compare 按钮仍是固定出口。两种触发方式相邻，状态与动作无需跨区寻找。
 - 容差是“设一次就忘”的参数（默认 1e-5 覆盖绝大多数情况），不值得占据主界面首屏 → 移入 `DEFAULT_CLOSED` 子面板。
 - `max UV difference` 这类技术数值对当前工作流没有决策价值，完全不显示；主结果区只留人话结论。
 - 被否方案：
@@ -33,7 +35,7 @@
 
 | # | 后端能力 | 去向 |
 |---|---------|------|
-| 1 | 比较两个完整选中的 UV 岛 | 主界面：Compare 按钮 |
+| 1 | 比较两个完整选中的 UV 岛 | 主界面：Auto Compare 开关 + 手动 Compare 按钮 |
 | 2 | UV Sync 开/关两种选择来源 | 不进插件界面。后端自动支持两种状态；当前状态由 Blender UV Editor 顶栏表达 |
 | 3 | 8 种方向关系识别 | 主界面：MATCH 时显示短关系名（映射表见第 3 节） |
 | 4 | 忽略平移/不忽略缩放形变拓扑 | 不进界面（README/文档层面的事） |
@@ -43,6 +45,7 @@
 | 8 | max UV difference | 完全不进插件界面，也不进入 operator `self.report()` 状态栏消息 |
 | 9 | 高频重复比较 | 每次点击先给 0.4 秒 `Updated` 反馈，再恢复并持久显示最新结果 |
 | 10 | 只读检查、不改 UV | 无需界面表达 |
+| 11 | 新双岛选择自动触发；无效中间选择静默 | 主界面：`Auto Compare` toggle；不增加等待状态行 |
 
 ---
 
@@ -54,6 +57,7 @@
 
 | 位置 | 文案 | 说明 |
 |------|------|------|
+| 自动模式 | `Auto Compare`（icon `AUTO`） | `toggle=True`；tooltip 说明仅在完整选中两个岛时自动比较 |
 | 按钮 | `Compare Selected Islands`（icon `VIEWZOOM`） | 沿用现名 |
 | NONE 单行（无 box） | `Results will appear here`（icon `INFO`） | 第一次比较后原位替换为结果 box |
 | NO_MATCH 第一行 | `No match`（icon `X`） | |
@@ -105,7 +109,7 @@
 - MATCH **不做绿色**：Blender Python 无法控制 label 颜色，唯一颜色杠杆是 `row.alert`（主题红）。绿色不可行也不必要，`CHECKMARK` 图标已足够。
 - NO_MATCH 不用红：它是合法结论而非用户错误；红只留给 ERROR。
 - 结果持久：任何选择/状态变化不清空结果区，只有再次执行 operator 才更新（与后端现状一致）。
-- 每次 operator 完成后，结果框先显示 `FILE_REFRESH · Updated` 0.4 秒，再恢复 status 对应内容；有 detail 的两行结果在刷新期间保留空的第二行，使 box 高度不跳动。
+- 每次有效比较完成后，结果框先显示 `FILE_REFRESH · Updated` 0.4 秒，再恢复 status 对应内容；有 detail 的两行结果在刷新期间保留空的第二行，使 box 高度不跳动。
 - 快速连续点击把 `WindowManager` 中的 monotonic 时间戳更新为最新值；timer 每次根据最新时间戳判断，不使用旧回调直接清状态。
 - operator `poll` 失败（非编辑态网格）时按钮由 Blender 自动置灰，无需额外处理。
 
@@ -137,6 +141,8 @@
 | `state.last.detail` | `wm.rizum_uv_compare_last_detail`（新增，同上） |
 | `state.refreshFlash` | `wm["rizum_uv_compare_refresh_started"]`（临时 monotonic 时间戳，不注册为持久 RNA 属性） |
 | `state.tolerance` | `wm.rizum_uv_compare_tolerance`（现有 FloatProperty，不动） |
+| `state.autoCompare` | `wm.rizum_uv_compare_auto`（BoolProperty，默认关闭） |
+| `state.autoSignature` | `wm["rizum_uv_compare_auto_signature"]`（只用于去重，不显示） |
 
 `store_result()` 写 status/headline/detail；`compare_islands`/`compare_selected_islands` 不再向 UI 返回 max difference。
 
@@ -144,20 +150,21 @@
 
 | # | HTML 元素 | Blender 调用 |
 |---|-----------|--------------|
-| 1 | 大 Compare 按钮（`.op.big`，30px 高） | `col = layout.column(); col.scale_y = 1.3; col.operator("uv.rizum_compare_islands", text="Compare Selected Islands", icon='VIEWZOOM')` |
-| 2 | 初始提示或结果 `.box` | 若 status 为 NONE：`layout.label(text="Results will appear here", icon='INFO')`，**不创建 box**；否则 `box = layout.box()` 并按状态分支： |
-| 2b | MATCH 一行 | `box.label(text=wm.rizum_uv_compare_last_headline, icon='CHECKMARK')` |
-| 2c | NO_MATCH 两行 | `box.label(text="No match", icon='X')`；若 detail 非空：`box.label(text=wm.rizum_uv_compare_last_detail)`（原生无法缩进第二行，直接齐行即可） |
-| 2d | ERROR 两行 | `row = box.row(); row.alert = True; row.label(text="Cannot compare", icon='ERROR')`；detail 非空则 `box.label(text=detail)`（**不加** alert） |
-| 2e | 刚完成比较 | 若 `time.monotonic() - wm["rizum_uv_compare_refresh_started"] < 0.4`：结果第一行临时画 `box.label(text="Updated", icon='FILE_REFRESH')`；有 detail 时再画一行空 label 保持高度。此分支优先于 MATCH/NO_MATCH/ERROR |
-| 3 | Advanced 子面板 | 新建 `UV_PT_rizum_compare_advanced(bpy.types.Panel)`：`bl_parent_id = "UV_PT_rizum_compare"`，`bl_label = "Advanced"`，`bl_options = {'DEFAULT_CLOSED'}`，space/region/category/poll 与主面板相同。Blender 自绘三角与开合状态，不用自定义 disclosure |
-| 3a | Tolerance 行 | 子面板内：`layout.prop(wm, "rizum_uv_compare_tolerance", text="Tolerance")` |
+| 1 | Auto Compare toggle | `layout.prop(wm, "rizum_uv_compare_auto", text="Auto Compare", icon='AUTO', toggle=True)` |
+| 2 | 大 Compare 按钮（`.op.big`，30px 高） | `col = layout.column(); col.scale_y = 1.3; col.operator("uv.rizum_compare_islands", text="Compare Selected Islands", icon='VIEWZOOM')` |
+| 3 | 初始提示或结果 `.box` | 若 status 为 NONE：`layout.label(text="Results will appear here", icon='INFO')`，**不创建 box**；否则 `box = layout.box()` 并按状态分支： |
+| 3a | MATCH 一行 | `box.label(text=wm.rizum_uv_compare_last_headline, icon='CHECKMARK')` |
+| 3b | NO_MATCH 两行 | `box.label(text="No match", icon='X')`；若 detail 非空：`box.label(text=wm.rizum_uv_compare_last_detail)`（原生无法缩进第二行，直接齐行即可） |
+| 3c | ERROR 两行 | `row = box.row(); row.alert = True; row.label(text="Cannot compare", icon='ERROR')`；detail 非空则 `box.label(text=detail)`（**不加** alert） |
+| 3d | 刚完成比较 | 若 `time.monotonic() - wm["rizum_uv_compare_refresh_started"] < 0.4`：结果第一行临时画 `box.label(text="Updated", icon='FILE_REFRESH')`；有 detail 时再画一行空 label 保持高度。此分支优先于 MATCH/NO_MATCH/ERROR |
+| 4 | Advanced 子面板 | 新建 `UV_PT_rizum_compare_advanced(bpy.types.Panel)`：`bl_parent_id = "UV_PT_rizum_compare"`，`bl_label = "Advanced"`，`bl_options = {'DEFAULT_CLOSED'}`，space/region/category/poll 与主面板相同。Blender 自绘三角与开合状态，不用自定义 disclosure |
+| 4a | Tolerance 行 | 子面板内：`layout.prop(wm, "rizum_uv_compare_tolerance", text="Tolerance")` |
 | — | HTML 里的 `RECOMMENDED` 角标、切换器、评审控件、SVG 画布 | 均不进入插件 |
 
 ### 6.2 其余变体（未采用，仅说明结构差异）
 
-- **A**：主面板 draw 顺序为 `layout.label(icon='UV')` 提示 → tolerance prop → `scale_y=1.3` 按钮 → 结果 box；无子面板。若实现，全部用上表同款调用，仅顺序不同。
-- **C**：结果 box 置顶 → 普通高度按钮（不设 `scale_y`）→ `bl_parent_id` 子面板改名 `Details`，内容仅 tolerance。
+- **A**：主面板 draw 顺序为提示 → tolerance prop → Auto Compare → `scale_y=1.3` 按钮 → 结果 box；无子面板。
+- **C**：结果 box 置顶 → Auto Compare → 普通高度按钮（不设 `scale_y`）→ `bl_parent_id` 子面板改名 `Details`，内容仅 tolerance。
 
 ### 6.3 明确不做的事
 
@@ -165,4 +172,5 @@
 - 不给结果区加绿/黄配色；不试图让 label 自动换行（所有文案已按 ≤40 字符预裁）。
 - 不显示或控制 Sync；插件界面不显示任何科学计数法数值。
 - 不调用 `self.report`；不使用时间戳文案、累计次数或改变按钮文字。
-- `bpy.app.timers` 只负责定时 `area.tag_redraw()`；是否仍处于 0.4 秒刷新窗口始终以最新 monotonic 时间戳为准。
+- 结果刷新 timer 只负责 `area.tag_redraw()`；是否仍处于 0.4 秒刷新窗口始终以最新 monotonic 时间戳为准。
+- Auto Compare 另用仅在开关开启时运行的 0.25 秒 timer；只比较新签名，选择不足/超过两个时清签名并静默保留结果。

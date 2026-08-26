@@ -4,7 +4,7 @@
 
 **Exact UV-island comparison for Blender, including mirrored and rotated matches.**
 
-[![Version](https://img.shields.io/badge/version-0.1.0-7c3aed.svg)](#)
+[![Version](https://img.shields.io/badge/version-0.2.0-7c3aed.svg)](https://github.com/Rizumu85/rizum-blender-uv-compare/releases/latest)
 [![Blender](https://img.shields.io/badge/Blender-4.2%2B-f5792a.svg)](https://www.blender.org/)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-2563eb.svg)](LICENSE)
 
@@ -16,7 +16,7 @@
 
 ## English
 
-Blender can make two UV islands look almost identical without proving that every UV vertex, edge, and face really matches. This small script compares exactly two selected UV islands and reports their relationship.
+Blender can make two UV islands look almost identical without proving that every UV vertex, edge, and face really matches. This add-on puts a reusable comparison button in the UV Editor sidebar and reports their exact relationship.
 
 ### What it detects
 
@@ -28,14 +28,22 @@ Blender can make two UV islands look almost identical without proving that every
 
 Translation is ignored. Scale and deformation are not ignored. The default tolerance is `1e-5`.
 
+### Install
+
+1. Download the ZIP from the [latest release](https://github.com/Rizumu85/rizum-blender-uv-compare/releases/latest).
+2. In Blender, open **Edit > Preferences > Add-ons**.
+3. Choose **Install from Disk**, select the downloaded ZIP, and enable **Rizum UV Compare**.
+
+You can also install [`uv_exact_compare.py`](uv_exact_compare.py) as a legacy single-file add-on, or run it once from Blender's Text Editor.
+
 ### Usage
 
-1. Download [`uv_exact_compare.py`](uv_exact_compare.py).
-2. In Blender, enter **Edit Mode** on the mesh.
-3. Open the UV Editor and turn **UV Sync Selection off**.
+1. Enter **Edit Mode** on the mesh and open the UV Editor.
+2. Press `N` and open the **UV Compare** tab.
+3. Turn **UV Sync Selection off**.
 4. Select exactly two complete UV islands.
-5. Open the script in Blender's Text Editor and choose **Run Script** (`Alt+P`).
-6. Read the result in the popup and the system console.
+5. Press **Compare Selected Islands**.
+6. Read the persistent result below the button. Repeat whenever needed.
 
 The script operates on the active edit mesh. Both islands must be fully selected and use the same face layout to count as an exact match.
 
@@ -45,7 +53,7 @@ It was made for checking front/back UV shells that share the same topology but m
 
 ## 中文
 
-Blender 里两个 UV 岛看起来可以几乎一样，但肉眼很难确认每个 UV 顶点、边和面是否真的完全一致。这个小脚本会比较两个选中的完整 UV 岛，并直接报告它们之间的关系。
+Blender 里两个 UV 岛看起来可以几乎一样，但肉眼很难确认每个 UV 顶点、边和面是否真的完全一致。这个插件会在 UV 编辑器右侧栏提供一个可重复使用的比较按钮，并直接报告两个 UV 岛之间的精确关系。
 
 ### 可以识别
 
@@ -57,14 +65,22 @@ Blender 里两个 UV 岛看起来可以几乎一样，但肉眼很难确认每�
 
 比较时忽略整体平移，但不会忽略缩放和形变。默认容差为 `1e-5`。
 
+### 安装
+
+1. 从 [Releases](https://github.com/Rizumu85/rizum-blender-uv-compare/releases/latest) 下载插件 ZIP。
+2. 在 Blender 打开 **编辑 > 偏好设置 > 插件**。
+3. 选择 **Install from Disk（从磁盘安装）**，选择 ZIP，并启用 **Rizum UV Compare**。
+
+也可以把 [`uv_exact_compare.py`](uv_exact_compare.py) 当作传统单文件插件安装，或在 Blender 文本编辑器中运行一次。
+
 ### 使用方法
 
-1. 下载 [`uv_exact_compare.py`](uv_exact_compare.py)。
-2. 在 Blender 中选中网格并进入**编辑模式**。
-3. 打开 UV 编辑器，关闭 **UV Sync Selection（同步选择）**。
+1. 选中网格进入**编辑模式**，并打开 UV 编辑器。
+2. 按 `N`，进入 **UV Compare** 标签。
+3. 关闭 **UV Sync Selection（同步选择）**。
 4. 完整选中且只选中两个 UV 岛。
-5. 在 Blender 文本编辑器中打开脚本，点击 **Run Script**，或按 `Alt+P`。
-6. 弹窗和系统控制台会显示比较结果。
+5. 点击 **Compare Selected Islands**。
+6. 按钮下方会保留上一次结果，可以换一组 UV 后继续点击。
 
 脚本只检查当前正在编辑的网格。两个 UV 岛必须完整选中，而且面布局相同，才可能判定为完全一致。
 

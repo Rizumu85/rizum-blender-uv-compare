@@ -1,0 +1,12 @@
+schema_version = "1.0.0"
+id = "rizum_uv_compare"
+name = "Rizum UV Compare"
+version = "0.2.0"
+tagline = "Compare UV islands for exact mirrored or rotated matches"
+maintainer = "Rizumu85"
+type = "add-on"
+tags = ["UV"]
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-3.0-or-later"]
+website = "https://github.com/Rizumu85/rizum-blender-uv-compare"
+copyright = ["2026 Rizumu85"]

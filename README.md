@@ -4,7 +4,7 @@
 
 **Exact UV-island comparison for Blender, including mirrored and rotated matches.**
 
-[![Version](https://img.shields.io/badge/version-0.4.3-7c3aed.svg)](https://github.com/Rizumu85/rizum-blender-uv-compare/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.4.4-7c3aed.svg)](https://github.com/Rizumu85/rizum-blender-uv-compare/releases/latest)
 [![Blender](https://img.shields.io/badge/Blender-4.2%2B-f5792a.svg)](https://www.blender.org/)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-2563eb.svg)](LICENSE)
 
@@ -47,7 +47,7 @@ You can also install [`uv_exact_compare.py`](uv_exact_compare.py) as a legacy si
 
 Tolerance lives in the collapsed **Advanced** sub-panel so the repeat workflow stays compact. Maximum UV difference is intentionally not shown in the interface.
 
-Every comparison briefly changes the persistent result box to **Updated** for 1.2 seconds, so repeating an unchanged result still gives visible feedback without status-bar reports.
+Every comparison briefly changes the persistent result box to **Updated** for 0.4 seconds, so repeating an unchanged result still gives visible feedback without status-bar reports.
 
 The script operates on the active edit mesh. Both islands must be fully selected and use the same face layout to count as an exact match.
 
@@ -88,7 +88,7 @@ Blender 里两个 UV 岛看起来可以几乎一样，但肉眼很难确认每�
 
 Tolerance 收在默认折叠的 **Advanced** 子面板中；最大 UV 差值不在界面中显示，主界面只保留高频操作需要的信息。
 
-每次比较后，持久结果框会短暂显示 1.2 秒 **Updated**，因此即使连续得到相同结果，也能确认插件已经重新执行；无需状态栏报告。
+每次比较后，持久结果框会短暂显示 0.4 秒 **Updated**，因此即使连续得到相同结果，也能确认插件已经重新执行；无需状态栏报告。
 
 脚本只检查当前正在编辑的网格。两个 UV 岛必须完整选中，而且面布局相同，才可能判定为完全一致。
 

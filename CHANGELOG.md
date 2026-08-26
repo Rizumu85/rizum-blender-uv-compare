@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.4 — 2026-08-26
+
+- Shortened the in-panel result refresh pulse from 1.2 seconds to 0.4 seconds for faster feedback.
+
 ## 0.4.3 — 2026-08-26
 
 - Added a 1.2-second `FILE_REFRESH · Updated` pulse inside the persistent result box.

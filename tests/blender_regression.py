@@ -147,9 +147,10 @@ def test_panel_state_registration(addon):
         assert wm.rizum_uv_compare_last_detail == result.detail
 
         wm[addon.RESULT_REFRESH_KEY] = 100.0
+        assert addon.RESULT_REFRESH_SECONDS == 0.4
         assert addon.result_refresh_active(wm, now=100.0)
-        assert addon.result_refresh_active(wm, now=101.199)
-        assert not addon.result_refresh_active(wm, now=101.2)
+        assert addon.result_refresh_active(wm, now=100.399)
+        assert not addon.result_refresh_active(wm, now=100.4)
         assert not addon.result_refresh_active(wm, now=99.9)
 
         addon.begin_result_refresh(wm)

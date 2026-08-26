@@ -5,7 +5,7 @@
 bl_info = {
     "name": "Rizum UV Compare",
     "author": "Rizumu85",
-    "version": (0, 4, 3),
+    "version": (0, 4, 4),
     "blender": (4, 2, 0),
     "location": "UV Editor > Sidebar > UV Compare",
     "description": "Compare two UV islands for exact mirrored or rotated matches",
@@ -23,7 +23,7 @@ from bpy.props import EnumProperty, FloatProperty, StringProperty
 
 
 DEFAULT_TOLERANCE = 1.0e-5
-RESULT_REFRESH_SECONDS = 1.2
+RESULT_REFRESH_SECONDS = 0.4
 RESULT_REFRESH_INTERVAL = 0.1
 RESULT_REFRESH_KEY = "rizum_uv_compare_refresh_started"
 

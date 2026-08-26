@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rizum UV Compare — UI Prototype (THROWAWAY)</title>
+<style>
+  /* ============================================================
+     THROWAWAY PROTOTYPE — Rizum UV Compare UI study
+     Offline, single file, no network dependencies.
+     Only the ~340px right-hand panel represents the add-on.
+     Everything else is fake host chrome / review tooling.
+     ============================================================ */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font: 12px/1.45 "Segoe UI", system-ui, sans-serif;
+    background: #161616;
+    color: #dedede;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  .proto-badge {
+    position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+    z-index: 60; pointer-events: none;
+    background: #5a2d2d; color: #f0c8c8; border: 1px solid #8a4a4a;
+    border-radius: 3px; padding: 3px 10px; font-size: 11px; letter-spacing: .4px;
+  }
+
+  /* ---------- fake Blender host ---------- */
+  .host { display: flex; flex-direction: column; height: 100vh; }
+  .uv-header {
+    height: 28px; flex: none; background: #232323; border-bottom: 1px solid #141414;
+    display: flex; align-items: center; gap: 2px; padding: 0 8px;
+  }
+  .uv-header .ed-name { color: #9a9a9a; padding: 3px 8px; }
+  .uv-header .menu { color: #cfcfcf; padding: 3px 8px; border-radius: 3px; }
+  .uv-header .menu:hover { background: #3a3a3a; }
+  .hdr-sync {
+    margin-left: 14px; width: 22px; height: 20px; border-radius: 3px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #545454; border: 1px solid #282828;
+  }
+  .hdr-sync.on { background: #34506e; border-color: #233649; }
+  .uv-header .spacer { flex: 1; }
+  .uv-header .hdr-note { color: #6f6f6f; font-size: 11px; padding-right: 4px; }
+
+  .uv-main { flex: 1; display: flex; min-height: 0; }
+  .uv-canvas { flex: 1; position: relative; background: #262626; overflow: hidden; }
+  .uv-canvas svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  /* ---------- sidebar (the thing being designed) ---------- */
+  .sidebar {
+    width: 340px; flex: none; background: #303030; border-left: 1px solid #1c1c1c;
+    display: flex; min-height: 0;
+  }
+  .tabstrip {
+    width: 26px; flex: none; background: #282828; border-right: 1px solid #1c1c1c;
+    display: flex; flex-direction: column; align-items: center; padding-top: 6px; gap: 2px;
+  }
+  .tabstrip .tab {
+    writing-mode: vertical-rl; transform: rotate(180deg);
+    color: #8f8f8f; padding: 8px 4px; border-radius: 3px; white-space: nowrap;
+  }
+  .tabstrip .tab.active { background: #303030; color: #e8e8e8; }
+  .region { flex: 1; min-width: 0; overflow-y: auto; }
+
+  .panel-header {
+    height: 24px; background: #2b2b2b; display: flex; align-items: center;
+    gap: 6px; padding: 0 8px; color: #e0e0e0; border-bottom: 1px solid #262626;
+  }
+  .panel-header .tri { font-size: 9px; color: #c8c8c8; }
+  .panel-header .grip { margin-left: auto; color: #6a6a6a; letter-spacing: 1px; font-size: 9px; }
+  .panel-body { padding: 8px 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+
+  /* ---------- Blender-native widget approximations ---------- */
+  .box {
+    background: #3c3c3c; border-radius: 4px; padding: 6px 8px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .rowline { display: flex; align-items: center; gap: 6px; min-height: 18px; }
+  .rowline.pad { padding-left: 20px; }
+  .rowline.alert { color: #e06565; }
+  .rowline.dim { color: #9d9d9d; }
+  .rowline svg { flex: none; }
+
+  .op {
+    appearance: none; border: 1px solid #282828; border-radius: 3px;
+    background: #545454; color: #ededed; font: inherit; cursor: pointer;
+    height: 22px; display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 100%;
+  }
+  .op:hover { background: #606060; }
+  .op:active { background: #4772b3; border-color: #2e4a6e; }
+  .op.big { height: 30px; }
+  .op.disabled, .op.disabled:hover, .op.disabled:active {
+    opacity: .45; cursor: default; background: #545454; border-color: #282828;
+  }
+
+  .num-row { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+  .num-row .num-label { flex: 1; color: #dedede; }
+  .num-field {
+    width: 118px; flex: none; height: 20px; background: #545454;
+    border: 1px solid #282828; border-radius: 3px; display: flex; align-items: center;
+  }
+  .num-field input {
+    width: 100%; background: transparent; border: 0; outline: none;
+    color: #ededed; font: inherit; padding: 0 6px;
+  }
+  .num-field:focus-within { border-color: #4772b3; }
+
+  .sync-line { display: flex; align-items: center; gap: 6px; color: #b9b9b9; min-height: 18px; }
+
+  .subpanel { border-radius: 3px; overflow: hidden; }
+  .sub-header {
+    background: #2b2b2b; border: 1px solid #242424; border-radius: 3px;
+    height: 22px; display: flex; align-items: center; gap: 6px; padding: 0 8px;
+    color: #d5d5d5; cursor: pointer;
+  }
+  .sub-header:hover { background: #353535; }
+  .sub-header .tri { font-size: 9px; color: #c8c8c8; width: 10px; }
+  .sub-body {
+    background: #363636; border: 1px solid #242424; border-top: 0;
+    border-radius: 0 0 3px 3px; padding: 6px 8px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .subpanel.closed .sub-body { display: none; }
+
+  .hint-label { display: flex; align-items: center; gap: 6px; min-height: 18px; }
+
+  .rec-tag {
+    display: inline-block; background: #34506e; color: #cfe0f5; border-radius: 3px;
+    font-size: 10px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px;
+    letter-spacing: .4px;
+  }
+
+  /* ---------- review controls (NOT part of the add-on) ---------- */
+  .review {
+    position: absolute; top: 40px; left: 12px; width: 268px; z-index: 40;
+    background: rgba(24,24,28,.96); border: 1px dashed #4772b3; border-radius: 5px;
+    padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .review .r-title { color: #7aa2da; font-size: 11px; letter-spacing: .5px; }
+  .review .r-sub { color: #777; font-size: 10px; margin-top: -6px; }
+  .review label.chk { display: flex; align-items: center; gap: 7px; color: #cfcfcf; cursor: pointer; }
+  .review input[type="checkbox"] { accent-color: #4772b3; }
+  .review .seg { display: flex; gap: 4px; align-items: center; }
+  .review .seg .seg-label { flex: 1; color: #cfcfcf; }
+  .review .seg button {
+    width: 28px; height: 20px; background: #3a3a3a; color: #cfcfcf;
+    border: 1px solid #242424; border-radius: 3px; cursor: pointer; font: inherit;
+  }
+  .review .seg button.on { background: #34506e; color: #eaf1fa; border-color: #233649; }
+  .review select {
+    background: #3a3a3a; color: #e0e0e0; border: 1px solid #242424;
+    border-radius: 3px; font: inherit; padding: 3px 4px; width: 100%;
+  }
+  .review .r-btn {
+    background: #3a3a3a; color: #cfcfcf; border: 1px solid #242424; border-radius: 3px;
+    height: 22px; cursor: pointer; font: inherit;
+  }
+  .review .r-btn:hover { background: #464646; }
+  .review .r-note { color: #6f6f6f; font-size: 10px; line-height: 1.5; }
+
+  /* ---------- variant switcher (review tool only) ---------- */
+  .switcher {
+    position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 60;
+    background: rgba(24,24,28,.96); border: 1px dashed #4772b3; border-radius: 5px;
+    padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; align-items: center;
+  }
+  .switcher .sw-row { display: flex; gap: 6px; }
+  .switcher button {
+    background: #3a3a3a; color: #cfcfcf; border: 1px solid #242424; border-radius: 3px;
+    padding: 4px 10px; cursor: pointer; font: inherit;
+  }
+  .switcher button.on { background: #34506e; color: #eaf1fa; border-color: #233649; }
+  .switcher .sw-cap { color: #777; font-size: 10px; }
+  .switcher .sw-desc { color: #9ab2cf; font-size: 11px; }
+
+  .isle { stroke: #7a7a7a; stroke-width: 1.2; fill: rgba(255,255,255,.03); }
+  .isle.sel { stroke: #e8912d; stroke-width: 1.4; fill: rgba(232,145,45,.16); }
+</style>
+</head>
+<body>
+
+<div class="proto-badge">THROWAWAY PROTOTYPE · Rizum UV Compare UI study · single offline file · not for production</div>
+
+<div class="host">
+  <div class="uv-header">
+    <span class="ed-name">UV Editor</span>
+    <span class="menu">View</span><span class="menu">Select</span><span class="menu">Add</span>
+    <span class="menu">Image</span><span class="menu">UV</span>
+    <span class="hdr-sync" id="hdrSync" title="UV Sync Selection (fake host chrome — mirrors the real header toggle)"></span>
+    <span class="spacer"></span>
+    <span class="hdr-note">fake Blender host — only the right-hand panel is the add-on UI being designed</span>
+  </div>
+
+  <div class="uv-main">
+    <div class="uv-canvas">
+      <svg viewBox="0 0 640 560" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <g id="gridMinor"></g>
+        <g id="gridMajor"></g>
+        <rect x="120" y="40" width="400" height="400" fill="none" stroke="#3f3f3f" stroke-width="1" stroke-dasharray="3 3"/>
+        <text x="524" y="446" fill="#5a5a5a" font-size="10">0–1 UV space</text>
+        <!-- three decorative islands; first N highlight as "selected" -->
+        <path id="isle0" class="isle" d="M160 120 L260 120 L260 170 L235 170 L235 220 L185 220 L185 170 L160 170 Z"/>
+        <path id="isle1" class="isle" d="M330 300 L430 300 L430 350 L405 350 L405 400 L355 400 L355 350 L330 350 Z"/>
+        <path id="isle2" class="isle" d="M300 90 L360 70 L410 100 L400 160 L340 175 L295 140 Z"/>
+      </svg>
+
+      <div class="review" id="review">
+        <div class="r-title">REVIEW CONTROLS — simulate Blender state</div>
+        <div class="r-sub">NOT part of the add-on · never ships to Blender</div>
+        <label class="chk"><input type="checkbox" id="chkEdit" checked> Edit Mode on a mesh (uncheck → Compare disabled)</label>
+        <label class="chk"><input type="checkbox" id="chkUV" checked> Mesh has a UV map (uncheck → error)</label>
+        <label class="chk"><input type="checkbox" id="chkSync"> UV Sync Selection (mirrors header toggle)</label>
+        <div class="seg">
+          <span class="seg-label">Complete islands selected</span>
+          <button data-isl="0">0</button><button data-isl="1">1</button>
+          <button data-isl="2" class="on">2</button><button data-isl="3">3</button>
+        </div>
+        <select id="selPair">
+          <option value="identical">Pair: identical (same orientation)</option>
+          <option value="mirrored" selected>Pair: mirrored horizontally</option>
+          <option value="rot180">Pair: rotated 180°</option>
+          <option value="shape">Pair: different shape / deformation</option>
+          <option value="faces">Pair: different face counts (12 vs 10)</option>
+        </select>
+        <button class="r-btn" id="btnReset">Reset result → “No comparison yet”</button>
+        <div class="r-note">The result persists until Compare is pressed again — exactly like the add-on. Changing selection here does not clear it.</div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="tabstrip">
+        <span class="tab">Item</span><span class="tab">Tool</span><span class="tab">View</span>
+        <span class="tab active">UV Compare</span>
+      </div>
+      <div class="region">
+        <div class="panel-header"><span class="tri">▾</span> Rizum UV Compare <span class="grip">⋮⋮</span></div>
+        <div class="panel-body" id="panelBody"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="switcher">
+  <div class="sw-row">
+    <button data-var="A">A · Settings-first</button>
+    <button data-var="B">B · Action-first ★ RECOMMENDED</button>
+    <button data-var="C">C · Result-first</button>
+  </div>
+  <div class="sw-desc" id="swDesc"></div>
+  <div class="sw-cap">review tool only — not part of the Blender UI · switch with ← → keys or ?variant=A|B|C</div>
+</div>
+
+<script>
+/* THROWAWAY PROTOTYPE — review-time state machine, no production value. */
+"use strict";
+
+var VARIANT_DESC = {
+  A: "A — Settings-first: current structure refined (hint + sync box + tolerance above the button).",
+  B: "B — Action-first: Compare on top, verdict under it, tolerance/technical number in collapsed Advanced. RECOMMENDED.",
+  C: "C — Result-first: verdict banner on top, Compare below, everything secondary inside a Details disclosure."
+};
+
+var state = {
+  variant: "A",
+  editMode: true,
+  hasUVMap: true,
+  sync: false,
+  islands: 2,
+  pair: "mirrored",
+  tolerance: 1e-5,
+  advancedOpen: false,
+  last: null  /* null => NONE; else {status, headline, detail, technical} */
+};
+
+function fmtTol(v) {
+  if (v >= 1e-6) { return v.toFixed(6); }
+  return v.toExponential(0).replace("e-0", "e-");
+}
+
+function computeResult() {
+  var s = state;
+  if (!s.hasUVMap) {
+    return { status: "ERROR", headline: "Cannot compare",
+             detail: "The active mesh has no UV map.",
+             technical: "The active mesh has no UV map." };
+  }
+  if (s.islands !== 2) {
+    return { status: "ERROR", headline: "Cannot compare",
+             detail: "Found " + s.islands + " islands, need exactly 2.",
+             technical: "Select exactly two complete UV islands (found " + s.islands + ")." };
+  }
+  if (s.pair === "identical") {
+    return { status: "MATCH", headline: "Match — Same orientation",
+             detail: "", technical: "Max UV difference: 1.1e-07" };
+  }
+  if (s.pair === "mirrored") {
+    return { status: "MATCH", headline: "Match — Mirrored horizontally",
+             detail: "", technical: "Max UV difference: 2.4e-06" };
+  }
+  if (s.pair === "rot180") {
+    return { status: "MATCH", headline: "Match — Rotated 180°",
+             detail: "", technical: "Max UV difference: 0 (exact)" };
+  }
+  if (s.pair === "faces") {
+    return { status: "NO_MATCH", headline: "No match",
+             detail: "Different face counts (12 vs 10).",
+             technical: "Different face counts: 12 vs 10." };
+  }
+  return { status: "NO_MATCH", headline: "No match",
+           detail: "Islands differ beyond tolerance.",
+           technical: "No transform matched within tolerance " + fmtTol(s.tolerance) + "." };
+}
+
+/* --- tiny inline icons (approximate Blender's built-in icon set) --- */
+function icon(name) {
+  var p = { width: 14, height: 14, viewBox: "0 0 16 16", fill: "none",
+            stroke: "currentColor", "stroke-width": 1.6, "stroke-linecap": "round" };
+  var inner = "";
+  if (name === "check")   { inner = '<path d="M3 8.5 L6.5 12 L13 4"/>'; }
+  if (name === "x")       { inner = '<path d="M4 4 L12 12 M12 4 L4 12"/>'; }
+  if (name === "error")   { inner = '<path d="M8 2.5 L14.5 13.5 L1.5 13.5 Z"/><path d="M8 7 L8 10.2"/><circle cx="8" cy="12.1" r="0.4" fill="currentColor"/>'; }
+  if (name === "question"){ inner = '<circle cx="8" cy="8" r="5.6"/><path d="M6.4 6.4 C6.6 5.2 9.4 5.2 9.6 6.6 C9.7 8 8 8.2 8 9.6"/><circle cx="8" cy="11.6" r="0.4" fill="currentColor"/>'; }
+  if (name === "linked")  { inner = '<path d="M6.5 9.5 L9.5 6.5"/><path d="M7.5 4.5 L9 3 A2.2 2.2 0 0 1 12.1 6.1 L10.6 7.6"/><path d="M8.5 11.5 L7 13 A2.2 2.2 0 0 1 3.9 9.9 L5.4 8.4"/>'; }
+  if (name === "unlinked"){ inner = '<path d="M7.5 4.5 L9 3 A2.2 2.2 0 0 1 12.1 6.1 L11.3 6.9"/><path d="M8.5 11.5 L7 13 A2.2 2.2 0 0 1 3.9 9.9 L4.7 9.1"/><path d="M3 3 L13 13"/>'; }
+  if (name === "viewzoom"){ inner = '<circle cx="7" cy="7" r="4"/><path d="M10 10 L13.5 13.5"/>'; }
+  if (name === "uv")      { inner = '<rect x="3" y="3" width="10" height="10"/><path d="M8 3 L8 13 M3 8 L13 8"/>'; }
+  var attrs = "";
+  Object.keys(p).forEach(function (k) { attrs += " " + k + '="' + p[k] + '"'; });
+  return "<svg" + attrs + ">" + inner + "</svg>";
+}
+
+/* --- shared panel fragments --- */
+function compareButton(big) {
+  var cls = "op" + (big ? " big" : "") + (state.editMode ? "" : " disabled");
+  return '<button class="' + cls + '" data-act="compare">' +
+         icon("viewzoom") + "<span>Compare Selected Islands</span></button>";
+}
+
+function resultBox(showNoneHint) {
+  var r = state.last;
+  if (!r) {
+    var h = '<div class="rowline">' + icon("question") + "<span>No comparison yet.</span></div>";
+    if (showNoneHint) {
+      h += '<div class="rowline dim pad">Select two complete UV islands.</div>';
+    }
+    return '<div class="box">' + h + "</div>";
+  }
+  if (r.status === "MATCH") {
+    return '<div class="box"><div class="rowline">' + icon("check") +
+           "<span>" + r.headline + "</span></div></div>";
+  }
+  if (r.status === "NO_MATCH") {
+    return '<div class="box"><div class="rowline">' + icon("x") +
+           "<span>" + r.headline + '</span></div><div class="rowline pad">' +
+           r.detail + "</div></div>";
+  }
+  return '<div class="box"><div class="rowline alert">' + icon("error") +
+         "<span>" + r.headline + '</span></div><div class="rowline pad">' +
+         r.detail + "</div></div>";
+}
+
+function toleranceRow() {
+  return '<div class="num-row"><span class="num-label">Tolerance</span>' +
+         '<span class="num-field"><input id="tolInput" value="' + fmtTol(state.tolerance) +
+         '" spellcheck="false"></span></div>';
+}
+
+function technicalRow() {
+  if (!state.last || !state.last.technical) { return ""; }
+  return '<div class="rowline dim">' + state.last.technical + "</div>";
+}
+
+function syncBox() {
+  var on = state.sync;
+  return '<div class="box"><div class="rowline">' + icon(on ? "linked" : "unlinked") +
+         "<span>" + (on ? "UV Sync: using mesh selection" : "UV Sync: using UV selection") +
+         "</span></div></div>";
+}
+
+function syncFooter() {
+  var on = state.sync;
+  return '<div class="sync-line">' + icon(on ? "linked" : "unlinked") +
+         "<span>" + (on ? "UV Sync on — mesh selection" : "UV Sync off — UV selection") +
+         "</span></div>";
+}
+
+function subPanel(title, bodyHtml) {
+  var open = state.advancedOpen;
+  return '<div class="subpanel' + (open ? "" : " closed") + '">' +
+         '<div class="sub-header" data-act="toggleAdvanced"><span class="tri">' +
+         (open ? "▾" : "▸") + "</span><span>" + title + "</span></div>" +
+         '<div class="sub-body">' + bodyHtml + "</div></div>";
+}
+
+/* --- the three structurally different variants --- */
+function renderA() {
+  return '<div class="hint-label">' + icon("uv") + "<span>Select two complete UV islands.</span></div>" +
+         syncBox() +
+         '<div class="box">' + toleranceRow() + "</div>" +
+         compareButton(true) +
+         resultBox(false);
+}
+
+function renderB() {
+  return compareButton(true) +
+         resultBox(true) +
+         syncFooter() +
+         subPanel("Advanced", toleranceRow() + technicalRow()) +
+         '<div class="rowline dim" style="font-size:10px">Recommended layout — see KIMI_UI_DECISION.md<span class="rec-tag">RECOMMENDED</span></div>';
+}
+
+function renderC() {
+  return resultBox(true) +
+         compareButton(false) +
+         subPanel("Details", syncFooter() + toleranceRow() + technicalRow());
+}
+
+function render() {
+  var body = document.getElementById("panelBody");
+  body.innerHTML = state.variant === "A" ? renderA()
+                 : state.variant === "B" ? renderB() : renderC();
+
+  document.getElementById("swDesc").textContent = VARIANT_DESC[state.variant];
+  var swBtns = document.querySelectorAll(".switcher button");
+  for (var i = 0; i < swBtns.length; i++) {
+    swBtns[i].classList.toggle("on", swBtns[i].getAttribute("data-var") === state.variant);
+  }
+
+  document.getElementById("hdrSync").innerHTML = icon(state.sync ? "linked" : "unlinked");
+  document.getElementById("hdrSync").classList.toggle("on", state.sync);
+
+  for (var n = 0; n < 3; n++) {
+    document.getElementById("isle" + n).classList.toggle("sel", n < state.islands);
+  }
+
+  var segBtns = document.querySelectorAll(".review .seg button");
+  for (var j = 0; j < segBtns.length; j++) {
+    segBtns[j].classList.toggle("on", Number(segBtns[j].getAttribute("data-isl")) === state.islands);
+  }
+}
+
+function setVariant(v) {
+  if (!VARIANT_DESC[v]) { return; }
+  state.variant = v;
+  try { history.replaceState(null, "", "?variant=" + v); } catch (e) { /* file:// quirk */ }
+  render();
+}
+
+/* --- wiring --- */
+document.getElementById("panelBody").addEventListener("click", function (ev) {
+  var t = ev.target.closest("[data-act]");
+  if (!t) { return; }
+  var act = t.getAttribute("data-act");
+  if (act === "compare" && state.editMode) {
+    state.last = computeResult();
+    render();
+  }
+  if (act === "toggleAdvanced") {
+    state.advancedOpen = !state.advancedOpen;
+    render();
+  }
+});
+
+document.getElementById("panelBody").addEventListener("change", function (ev) {
+  if (ev.target.id !== "tolInput") { return; }
+  var v = parseFloat(ev.target.value);
+  if (isNaN(v)) { v = 1e-5; }
+  v = Math.min(1e-2, Math.max(1e-8, v));
+  state.tolerance = v;
+  ev.target.value = fmtTol(v);
+});
+
+document.getElementById("chkEdit").addEventListener("change", function (ev) {
+  state.editMode = ev.target.checked; render();
+});
+document.getElementById("chkUV").addEventListener("change", function (ev) {
+  state.hasUVMap = ev.target.checked; render();
+});
+document.getElementById("chkSync").addEventListener("change", function (ev) {
+  state.sync = ev.target.checked; render();
+});
+document.getElementById("selPair").addEventListener("change", function (ev) {
+  state.pair = ev.target.value; render();
+});
+document.getElementById("btnReset").addEventListener("click", function () {
+  state.last = null; render();
+});
+
+var seg = document.querySelectorAll(".review .seg button");
+for (var k = 0; k < seg.length; k++) {
+  seg[k].addEventListener("click", function () {
+    state.islands = Number(this.getAttribute("data-isl"));
+    render();
+  });
+}
+
+var sw = document.querySelectorAll(".switcher button");
+for (var m = 0; m < sw.length; m++) {
+  sw[m].addEventListener("click", function () { setVariant(this.getAttribute("data-var")); });
+}
+
+document.addEventListener("keydown", function (ev) {
+  var order = ["A", "B", "C"];
+  var idx = order.indexOf(state.variant);
+  if (ev.key === "ArrowRight") { setVariant(order[(idx + 1) % 3]); }
+  if (ev.key === "ArrowLeft")  { setVariant(order[(idx + 2) % 3]); }
+});
+
+/* decorative grid */
+(function buildGrid() {
+  var minor = "", major = "", x, y;
+  for (x = 0; x <= 640; x += 20) {
+    minor += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="560" stroke="#2b2b2b" stroke-width="1"/>';
+  }
+  for (y = 0; y <= 560; y += 20) {
+    minor += '<line x1="0" y1="' + y + '" x2="640" y2="' + y + '" stroke="#2b2b2b" stroke-width="1"/>';
+  }
+  for (x = 0; x <= 640; x += 100) {
+    major += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="560" stroke="#313131" stroke-width="1"/>';
+  }
+  for (y = 0; y <= 560; y += 100) {
+    major += '<line x1="0" y1="' + y + '" x2="640" y2="' + y + '" stroke="#313131" stroke-width="1"/>';
+  }
+  document.getElementById("gridMinor").innerHTML = minor;
+  document.getElementById("gridMajor").innerHTML = major;
+})();
+
+/* init from ?variant= */
+(function init() {
+  var m = /[?&]variant=([ABC])/.exec(location.search);
+  if (m) { state.variant = m[1]; }
+  render();
+})();
+</script>
+</body>
+</html>

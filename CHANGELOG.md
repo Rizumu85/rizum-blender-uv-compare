@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.3 — 2026-08-26
+
+- Added a 1.2-second `FILE_REFRESH · Updated` pulse inside the persistent result box.
+- Made rapid repeated comparisons restart the same refresh window safely.
+- Removed operator `self.report()` feedback in favor of the in-panel refresh state.
+- Preserved result-box height while two-line results are refreshing.
+
 ## 0.4.2 — 2026-08-26
 
 - Removed maximum UV difference from the panel, Advanced sub-panel and operator reports.

@@ -5,7 +5,7 @@
 bl_info = {
     "name": "Rizum UV Compare",
     "author": "Rizumu85",
-    "version": (0, 4, 2),
+    "version": (0, 4, 3),
     "blender": (4, 2, 0),
     "location": "UV Editor > Sidebar > UV Compare",
     "description": "Compare two UV islands for exact mirrored or rotated matches",
@@ -14,6 +14,7 @@ bl_info = {
 
 from collections import defaultdict, deque
 import math
+import time
 from typing import NamedTuple
 
 import bmesh
@@ -22,6 +23,9 @@ from bpy.props import EnumProperty, FloatProperty, StringProperty
 
 
 DEFAULT_TOLERANCE = 1.0e-5
+RESULT_REFRESH_SECONDS = 1.2
+RESULT_REFRESH_INTERVAL = 0.1
+RESULT_REFRESH_KEY = "rizum_uv_compare_refresh_started"
 
 TRANSFORMS = (
     ("Same orientation", lambda x, y: (x, y)),
@@ -338,6 +342,49 @@ def store_result(context, result):
     wm.rizum_uv_compare_last_detail = result.detail
 
 
+def result_refresh_active(wm, now=None):
+    """Return whether the result box is inside its short refresh window."""
+    started = wm.get(RESULT_REFRESH_KEY)
+    if started is None:
+        return False
+    if now is None:
+        now = time.monotonic()
+    elapsed = now - float(started)
+    return 0.0 <= elapsed < RESULT_REFRESH_SECONDS
+
+
+def tag_uv_compare_areas(wm):
+    """Redraw UV/Image Editors that can contain the add-on panel."""
+    for window in wm.windows:
+        screen = window.screen
+        if screen is None:
+            continue
+        for area in screen.areas:
+            if area.type == "IMAGE_EDITOR":
+                area.tag_redraw()
+
+
+def result_refresh_timer():
+    wm = getattr(bpy.context, "window_manager", None)
+    if wm is None:
+        return None
+    tag_uv_compare_areas(wm)
+    if result_refresh_active(wm):
+        return RESULT_REFRESH_INTERVAL
+    return None
+
+
+def begin_result_refresh(wm):
+    """Restart the refresh pulse without allowing an older timer to end it."""
+    wm[RESULT_REFRESH_KEY] = time.monotonic()
+    tag_uv_compare_areas(wm)
+    if not bpy.app.timers.is_registered(result_refresh_timer):
+        bpy.app.timers.register(
+            result_refresh_timer,
+            first_interval=RESULT_REFRESH_INTERVAL,
+        )
+
+
 class UV_OT_rizum_compare_islands(bpy.types.Operator):
     bl_idname = "uv.rizum_compare_islands"
     bl_label = "Compare Selected Islands"
@@ -358,9 +405,8 @@ class UV_OT_rizum_compare_islands(bpy.types.Operator):
             use_uv_select_sync=use_uv_select_sync,
         )
         store_result(context, result)
+        begin_result_refresh(context.window_manager)
 
-        report_level = {"MATCH": {"INFO"}, "NO_MATCH": {"WARNING"}, "ERROR": {"ERROR"}}
-        self.report(report_level[result.status], result.message)
         print(f"Rizum UV Compare: {result.message} (tolerance {tolerance:g})")
         return {"CANCELLED"} if result.status == "ERROR" else {"FINISHED"}
 
@@ -394,6 +440,12 @@ class UV_PT_rizum_compare(bpy.types.Panel):
             return
 
         result_box = layout.box()
+        if result_refresh_active(wm):
+            result_box.label(text="Updated", icon="FILE_REFRESH")
+            if wm.rizum_uv_compare_last_detail:
+                result_box.label(text="")
+            return
+
         if status == "MATCH":
             result_box.label(
                 text=wm.rizum_uv_compare_last_headline,
@@ -466,6 +518,11 @@ def register():
 
 
 def unregister():
+    if bpy.app.timers.is_registered(result_refresh_timer):
+        bpy.app.timers.unregister(result_refresh_timer)
+    wm = getattr(bpy.context, "window_manager", None)
+    if wm is not None and RESULT_REFRESH_KEY in wm:
+        del wm[RESULT_REFRESH_KEY]
     for cls in reversed(CLASSES):
         bpy.utils.unregister_class(cls)
     del bpy.types.WindowManager.rizum_uv_compare_last_status

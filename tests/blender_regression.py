@@ -130,6 +130,9 @@ def test_panel_state_registration(addon):
         assert "Results will appear here" in panel_source
         assert "No comparison yet" not in panel_source
         assert "Max UV difference" not in inspect.getsource(addon)
+        assert "FILE_REFRESH" in panel_source
+        operator_source = inspect.getsource(addon.UV_OT_rizum_compare_islands.execute)
+        assert "self.report" not in operator_source
 
         result = addon.CompareResult(
             "MATCH",
@@ -142,6 +145,16 @@ def test_panel_state_registration(addon):
         assert wm.rizum_uv_compare_last_status == "MATCH"
         assert wm.rizum_uv_compare_last_headline == result.headline
         assert wm.rizum_uv_compare_last_detail == result.detail
+
+        wm[addon.RESULT_REFRESH_KEY] = 100.0
+        assert addon.result_refresh_active(wm, now=100.0)
+        assert addon.result_refresh_active(wm, now=101.199)
+        assert not addon.result_refresh_active(wm, now=101.2)
+        assert not addon.result_refresh_active(wm, now=99.9)
+
+        addon.begin_result_refresh(wm)
+        assert addon.result_refresh_active(wm)
+        assert bpy.app.timers.is_registered(addon.result_refresh_timer)
     finally:
         addon.unregister()
 

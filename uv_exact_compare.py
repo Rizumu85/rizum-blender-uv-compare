@@ -5,7 +5,7 @@
 bl_info = {
     "name": "Rizum UV Compare",
     "author": "Rizumu85",
-    "version": (0, 5, 0),
+    "version": (0, 5, 1),
     "blender": (4, 2, 0),
     "location": "UV Editor > Sidebar > UV Compare",
     "description": "Compare two UV islands for exact mirrored or rotated matches",
@@ -314,22 +314,22 @@ def compare_islands(island_a, island_b, uv_layer, tolerance):
 
 
 def selected_uv_data(obj, tolerance, use_uv_select_sync=False):
-    """Return the active UV layer and fully selected UV islands."""
+    """Return the live edit BMesh, active UV layer and selected UV islands."""
     bm = bmesh.from_edit_mesh(obj.data)
     uv_layer = bm.loops.layers.uv.active
     if uv_layer is None:
-        return None, []
+        return bm, None, []
 
     bm.faces.index_update()
     islands = selected_uv_islands(
         bm, uv_layer, tolerance, use_uv_select_sync=use_uv_select_sync
     )
-    return uv_layer, islands
+    return bm, uv_layer, islands
 
 
 def compare_selected_islands(obj, tolerance, use_uv_select_sync=False):
     """Return a structured result for the current UV selection."""
-    uv_layer, islands = selected_uv_data(
+    bm, uv_layer, islands = selected_uv_data(
         obj,
         tolerance,
         use_uv_select_sync=use_uv_select_sync,
@@ -435,7 +435,7 @@ def auto_compare_current_selection(context):
 
     tolerance = wm.rizum_uv_compare_tolerance
     use_uv_select_sync = context.scene.tool_settings.use_uv_select_sync
-    uv_layer, islands = selected_uv_data(
+    bm, uv_layer, islands = selected_uv_data(
         obj,
         tolerance,
         use_uv_select_sync=use_uv_select_sync,

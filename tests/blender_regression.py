@@ -226,8 +226,11 @@ def test_auto_compare_mode(addon):
         set_uv_selected(bm.faces[0], uv_layer, True)
         set_uv_selected(bm.faces[1], uv_layer, True)
         bmesh.update_edit_mesh(mesh, loop_triangles=False, destructive=False)
+        del bm, uv_layer
 
         wm = bpy.context.window_manager
+        assert bpy.ops.uv.rizum_compare_islands() == {"FINISHED"}
+        assert wm.rizum_uv_compare_last_status == "MATCH"
         wm.rizum_uv_compare_auto = True
         assert bpy.app.timers.is_registered(addon.auto_compare_timer)
         assert addon.auto_compare_timer() == addon.AUTO_COMPARE_INTERVAL
@@ -235,6 +238,9 @@ def test_auto_compare_mode(addon):
         assert wm.rizum_uv_compare_last_headline == "Match — Same orientation"
         assert not addon.auto_compare_current_selection(bpy.context)
 
+        bm = bmesh.from_edit_mesh(mesh)
+        bm.faces.ensure_lookup_table()
+        uv_layer = bm.loops.layers.uv.active
         set_uv_selected(bm.faces[1], uv_layer, False)
         bmesh.update_edit_mesh(mesh, loop_triangles=False, destructive=False)
         assert not addon.auto_compare_current_selection(bpy.context)

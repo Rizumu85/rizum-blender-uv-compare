@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 id = "rizum_uv_compare"
 name = "Rizum UV Compare"
-version = "0.5.0"
+version = "0.5.1"
 tagline = "Compare UV islands for exact mirrored or rotated matches"
 maintainer = "Rizumu85"
 type = "add-on"

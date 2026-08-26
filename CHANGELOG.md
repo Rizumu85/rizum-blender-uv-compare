@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1 — 2026-08-26
+
+- Fixed invalid `BMFace` references that broke both manual and automatic comparison when no external edit-BMesh wrapper happened to remain alive.
+- Added an operator-level regression test that releases the setup wrapper before comparing, matching real Blender usage.
+
 ## 0.5.0 — 2026-08-26
 
 - Added an **Auto Compare** mode that watches for a new pair of two complete selected UV islands.

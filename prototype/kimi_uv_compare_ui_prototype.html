@@ -271,8 +271,11 @@ var state = {
   pair: "mirrored",
   tolerance: 1e-5,
   advancedOpen: false,
+  refreshFlash: false,
   last: null  /* null => NONE; else {status, headline, detail} */
 };
+
+var refreshTimer = null;
 
 function fmtTol(v) {
   if (v >= 1e-6) { return v.toFixed(6); }
@@ -316,6 +319,7 @@ function icon(name) {
   if (name === "error")   { inner = '<path d="M8 2.5 L14.5 13.5 L1.5 13.5 Z"/><path d="M8 7 L8 10.2"/><circle cx="8" cy="12.1" r="0.4" fill="currentColor"/>'; }
   if (name === "question"){ inner = '<circle cx="8" cy="8" r="5.6"/><path d="M6.4 6.4 C6.6 5.2 9.4 5.2 9.6 6.6 C9.7 8 8 8.2 8 9.6"/><circle cx="8" cy="11.6" r="0.4" fill="currentColor"/>'; }
   if (name === "info")    { inner = '<circle cx="8" cy="8" r="5.6"/><path d="M8 7 L8 11"/><circle cx="8" cy="4.8" r="0.5" fill="currentColor"/>'; }
+  if (name === "refresh") { inner = '<path d="M12.8 6 A5.2 5.2 0 1 0 13 9"/><path d="M10.5 3.2 L13 6 L15 3.3"/>'; }
   if (name === "linked")  { inner = '<path d="M6.5 9.5 L9.5 6.5"/><path d="M7.5 4.5 L9 3 A2.2 2.2 0 0 1 12.1 6.1 L10.6 7.6"/><path d="M8.5 11.5 L7 13 A2.2 2.2 0 0 1 3.9 9.9 L5.4 8.4"/>'; }
   if (name === "unlinked"){ inner = '<path d="M7.5 4.5 L9 3 A2.2 2.2 0 0 1 12.1 6.1 L11.3 6.9"/><path d="M8.5 11.5 L7 13 A2.2 2.2 0 0 1 3.9 9.9 L4.7 9.1"/><path d="M3 3 L13 13"/>'; }
   if (name === "viewzoom"){ inner = '<circle cx="7" cy="7" r="4"/><path d="M10 10 L13.5 13.5"/>'; }
@@ -341,6 +345,11 @@ function resultBox(showNoneHint) {
     }
     return '<div class="box">' + h + "</div>";
   }
+  if (state.refreshFlash) {
+    var refreshed = '<div class="rowline">' + icon("refresh") + '<span>Updated</span></div>';
+    if (r.detail) { refreshed += '<div class="rowline pad">&nbsp;</div>'; }
+    return '<div class="box">' + refreshed + '</div>';
+  }
   if (r.status === "MATCH") {
     return '<div class="box"><div class="rowline">' + icon("check") +
            "<span>" + r.headline + "</span></div></div>";
@@ -353,6 +362,18 @@ function resultBox(showNoneHint) {
   return '<div class="box"><div class="rowline alert">' + icon("error") +
          "<span>" + r.headline + '</span></div><div class="rowline pad">' +
          r.detail + "</div></div>";
+}
+
+function runComparison() {
+  state.last = computeResult();
+  state.refreshFlash = true;
+  if (refreshTimer !== null) { clearTimeout(refreshTimer); }
+  refreshTimer = setTimeout(function () {
+    state.refreshFlash = false;
+    refreshTimer = null;
+    render();
+  }, 1200);
+  render();
 }
 
 function toleranceRow() {
@@ -427,8 +448,7 @@ document.getElementById("panelBody").addEventListener("click", function (ev) {
   if (!t) { return; }
   var act = t.getAttribute("data-act");
   if (act === "compare" && state.editMode) {
-    state.last = computeResult();
-    render();
+    runComparison();
   }
   if (act === "toggleAdvanced") {
     state.advancedOpen = !state.advancedOpen;
@@ -458,7 +478,10 @@ document.getElementById("selPair").addEventListener("change", function (ev) {
   state.pair = ev.target.value; render();
 });
 document.getElementById("btnReset").addEventListener("click", function () {
-  state.last = null; render();
+  if (refreshTimer !== null) { clearTimeout(refreshTimer); refreshTimer = null; }
+  state.refreshFlash = false;
+  state.last = null;
+  render();
 });
 
 var seg = document.querySelectorAll(".review .seg button");

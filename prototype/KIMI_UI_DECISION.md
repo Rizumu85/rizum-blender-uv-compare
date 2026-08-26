@@ -13,6 +13,8 @@
 > 用户查看原型后的最终裁决：删除插件内的 Sync 状态行。插件在 Sync 开/关时均可工作，当前状态已经由 Blender UV Editor 顶栏表达，面板不重复显示。
 >
 > 第二次裁决（K3 high）：初始时不画空结果 box，只显示一行 `INFO · Results will appear here`；首次比较后原位替换为真实结果 box。`Max UV difference` 从所有插件界面和状态栏 report 中完全移除。
+>
+> 第三次裁决（K3 high）：不使用 `self.report`。每次比较后，持久结果框在原位显示 `FILE_REFRESH · Updated` 1.2 秒，再恢复实际结果。连续点击只刷新最新时间戳；旧 timer 不得提前恢复。
 
 为什么是 B：
 
@@ -37,7 +39,7 @@
 | 6 | NONE/MATCH/NO_MATCH/ERROR 四态 | 主界面：NONE 为一行 INFO 提示；其余状态使用结果 box（第 4 节） |
 | 7 | 错误详情（无 UV Map、岛数量≠2 含具体数量） | 主界面：仅错误时显示，alert 红字；面数/loop 数不同属 NO_MATCH，原因作为结果区第二行 |
 | 8 | max UV difference | 完全不进插件界面，也不进入 operator `self.report()` 状态栏消息 |
-| 9 | 高频重复比较 | 结果在下次点击 Compare 前保持不变；NONE 态提示文案常驻结果区 |
+| 9 | 高频重复比较 | 每次点击先给 1.2 秒 `Updated` 反馈，再恢复并持久显示最新结果 |
 | 10 | 只读检查、不改 UV | 无需界面表达 |
 
 ---
@@ -56,6 +58,7 @@
 | ERROR 第一行（红） | `Cannot compare`（icon `ERROR`） | |
 | Advanced 子面板标题 | `Advanced` | |
 | Tolerance 属性 | `Tolerance` | 现有 prop，原样移入 |
+| 刷新反馈 | `Updated`（icon `FILE_REFRESH`） | 每次比较后在结果框原位显示 1.2 秒 |
 
 ### 3.2 MATCH 第一行：`Match — <短关系名>`
 
@@ -100,6 +103,8 @@
 - MATCH **不做绿色**：Blender Python 无法控制 label 颜色，唯一颜色杠杆是 `row.alert`（主题红）。绿色不可行也不必要，`CHECKMARK` 图标已足够。
 - NO_MATCH 不用红：它是合法结论而非用户错误；红只留给 ERROR。
 - 结果持久：任何选择/状态变化不清空结果区，只有再次执行 operator 才更新（与后端现状一致）。
+- 每次 operator 完成后，结果框先显示 `FILE_REFRESH · Updated` 1.2 秒，再恢复 status 对应内容；有 detail 的两行结果在刷新期间保留空的第二行，使 box 高度不跳动。
+- 快速连续点击把 `WindowManager` 中的 monotonic 时间戳更新为最新值；timer 每次根据最新时间戳判断，不使用旧回调直接清状态。
 - operator `poll` 失败（非编辑态网格）时按钮由 Blender 自动置灰，无需额外处理。
 
 ---
@@ -115,7 +120,7 @@
 | `textwrap.wrap(message, 38)` 整段消息 | **删除**——它正是 “`(ma…` / `difference 1.13e-07).`” 断行丑态的根源；改为结构化的“结论行 + 可选原因行”，不再显示完整后端句子 |
 | `(max UV difference 1.13e-07)` | **从所有插件界面与状态栏 report 完全移除** |
 
-存储相应调整：只保留状态、headline、detail；operator 的 `self.report()` 使用不含 max difference 的简短句子。
+存储相应调整：只保留状态、headline、detail；operator 不调用 `self.report()`。
 
 ---
 
@@ -128,6 +133,7 @@
 | `state.last.status` | `wm.rizum_uv_compare_last_status`（Enum，现有，保留） |
 | `state.last.headline` | `wm.rizum_uv_compare_last_headline`（新增 `StringProperty`，`options={'HIDDEN'}`，默认 `""`） |
 | `state.last.detail` | `wm.rizum_uv_compare_last_detail`（新增，同上） |
+| `state.refreshFlash` | `wm["rizum_uv_compare_refresh_started"]`（临时 monotonic 时间戳，不注册为持久 RNA 属性） |
 | `state.tolerance` | `wm.rizum_uv_compare_tolerance`（现有 FloatProperty，不动） |
 
 `store_result()` 写 status/headline/detail；`compare_islands`/`compare_selected_islands` 不再向 UI 返回 max difference。
@@ -141,6 +147,7 @@
 | 2b | MATCH 一行 | `box.label(text=wm.rizum_uv_compare_last_headline, icon='CHECKMARK')` |
 | 2c | NO_MATCH 两行 | `box.label(text="No match", icon='X')`；若 detail 非空：`box.label(text=wm.rizum_uv_compare_last_detail)`（原生无法缩进第二行，直接齐行即可） |
 | 2d | ERROR 两行 | `row = box.row(); row.alert = True; row.label(text="Cannot compare", icon='ERROR')`；detail 非空则 `box.label(text=detail)`（**不加** alert） |
+| 2e | 刚完成比较 | 若 `time.monotonic() - wm["rizum_uv_compare_refresh_started"] < 1.2`：结果第一行临时画 `box.label(text="Updated", icon='FILE_REFRESH')`；有 detail 时再画一行空 label 保持高度。此分支优先于 MATCH/NO_MATCH/ERROR |
 | 3 | Advanced 子面板 | 新建 `UV_PT_rizum_compare_advanced(bpy.types.Panel)`：`bl_parent_id = "UV_PT_rizum_compare"`，`bl_label = "Advanced"`，`bl_options = {'DEFAULT_CLOSED'}`，space/region/category/poll 与主面板相同。Blender 自绘三角与开合状态，不用自定义 disclosure |
 | 3a | Tolerance 行 | 子面板内：`layout.prop(wm, "rizum_uv_compare_tolerance", text="Tolerance")` |
 | — | HTML 里的 `RECOMMENDED` 角标、切换器、评审控件、SVG 画布 | 均不进入插件 |
@@ -155,3 +162,5 @@
 - 不自定义颜色/字体/圆角/阴影/hover 动画；不用 GPU canvas、自定义绘制或图标资源。
 - 不给结果区加绿/黄配色；不试图让 label 自动换行（所有文案已按 ≤40 字符预裁）。
 - 不显示或控制 Sync；插件界面不显示任何科学计数法数值。
+- 不调用 `self.report`；不使用时间戳文案、累计次数或改变按钮文字。
+- `bpy.app.timers` 只负责定时 `area.tag_redraw()`；是否仍处于 1.2 秒刷新窗口始终以最新 monotonic 时间戳为准。

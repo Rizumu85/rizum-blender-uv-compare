@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1 — 2026-08-26
+
+- Removed the redundant UV Sync Selection status line from the panel.
+- UV Sync on/off support remains automatic; Blender's UV Editor header already shows the current state.
+
 ## 0.4.0 — 2026-08-26
 
 - Redesigned the panel around the frequent compare-and-check workflow.

@@ -5,7 +5,7 @@
 bl_info = {
     "name": "Rizum UV Compare",
     "author": "Rizumu85",
-    "version": (0, 4, 0),
+    "version": (0, 4, 1),
     "blender": (4, 2, 0),
     "location": "UV Editor > Sidebar > UV Compare",
     "description": "Compare two UV islands for exact mirrored or rotated matches",
@@ -388,7 +388,6 @@ class UV_PT_rizum_compare(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         wm = context.window_manager
-        sync_enabled = context.scene.tool_settings.use_uv_select_sync
 
         action = layout.column()
         action.scale_y = 1.3
@@ -418,12 +417,6 @@ class UV_PT_rizum_compare(bpy.types.Panel):
             error_row.label(text="Cannot compare", icon="ERROR")
             if wm.rizum_uv_compare_last_detail:
                 result_box.label(text=wm.rizum_uv_compare_last_detail)
-
-        if sync_enabled:
-            layout.label(text="UV Sync on — mesh selection", icon="LINKED")
-        else:
-            layout.label(text="UV Sync off — UV selection", icon="UNLINKED")
-
 
 class UV_PT_rizum_compare_advanced(bpy.types.Panel):
     bl_label = "Advanced"

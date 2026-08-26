@@ -1,6 +1,7 @@
 """Run with: blender --background --python tests/blender_regression.py"""
 
 import importlib.util
+import inspect
 from pathlib import Path
 import sys
 
@@ -123,6 +124,9 @@ def test_panel_state_registration(addon):
         assert not hasattr(bpy.types.WindowManager, "rizum_uv_compare_last_result")
         assert addon.UV_PT_rizum_compare_advanced.bl_parent_id == "UV_PT_rizum_compare"
         assert "DEFAULT_CLOSED" in addon.UV_PT_rizum_compare_advanced.bl_options
+        panel_source = inspect.getsource(addon.UV_PT_rizum_compare.draw)
+        assert "UV Sync on" not in panel_source
+        assert "UV Sync off" not in panel_source
 
         result = addon.CompareResult(
             "MATCH",

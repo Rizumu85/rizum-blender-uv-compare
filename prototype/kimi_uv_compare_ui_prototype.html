@@ -109,8 +109,6 @@
   }
   .num-field:focus-within { border-color: #4772b3; }
 
-  .sync-line { display: flex; align-items: center; gap: 6px; color: #b9b9b9; min-height: 18px; }
-
   .subpanel { border-radius: 3px; overflow: hidden; }
   .sub-header {
     background: #2b2b2b; border: 1px solid #242424; border-radius: 3px;
@@ -259,7 +257,7 @@
 "use strict";
 
 var VARIANT_DESC = {
-  A: "A — Settings-first: current structure refined (hint + sync box + tolerance above the button).",
+  A: "A — Settings-first: current structure refined (hint + tolerance above the button).",
   B: "B — Action-first: Compare on top, verdict under it, tolerance/technical number in collapsed Advanced. RECOMMENDED.",
   C: "C — Result-first: verdict banner on top, Compare below, everything secondary inside a Details disclosure."
 };
@@ -374,20 +372,6 @@ function technicalRow() {
   return '<div class="rowline dim">' + state.last.technical + "</div>";
 }
 
-function syncBox() {
-  var on = state.sync;
-  return '<div class="box"><div class="rowline">' + icon(on ? "linked" : "unlinked") +
-         "<span>" + (on ? "UV Sync: using mesh selection" : "UV Sync: using UV selection") +
-         "</span></div></div>";
-}
-
-function syncFooter() {
-  var on = state.sync;
-  return '<div class="sync-line">' + icon(on ? "linked" : "unlinked") +
-         "<span>" + (on ? "UV Sync on — mesh selection" : "UV Sync off — UV selection") +
-         "</span></div>";
-}
-
 function subPanel(title, bodyHtml) {
   var open = state.advancedOpen;
   return '<div class="subpanel' + (open ? "" : " closed") + '">' +
@@ -399,7 +383,6 @@ function subPanel(title, bodyHtml) {
 /* --- the three structurally different variants --- */
 function renderA() {
   return '<div class="hint-label">' + icon("uv") + "<span>Select two complete UV islands.</span></div>" +
-         syncBox() +
          '<div class="box">' + toleranceRow() + "</div>" +
          compareButton(true) +
          resultBox(false);
@@ -408,7 +391,6 @@ function renderA() {
 function renderB() {
   return compareButton(true) +
          resultBox(true) +
-         syncFooter() +
          subPanel("Advanced", toleranceRow() + technicalRow()) +
          '<div class="rowline dim" style="font-size:10px">Recommended layout — see KIMI_UI_DECISION.md<span class="rec-tag">RECOMMENDED</span></div>';
 }
@@ -416,7 +398,7 @@ function renderB() {
 function renderC() {
   return resultBox(true) +
          compareButton(false) +
-         subPanel("Details", syncFooter() + toleranceRow() + technicalRow());
+         subPanel("Details", toleranceRow() + technicalRow());
 }
 
 function render() {

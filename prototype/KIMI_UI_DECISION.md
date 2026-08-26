@@ -8,7 +8,9 @@
 
 ## 1. 最终推荐：Variant B（Action-first）
 
-**面板自上而下：Compare 按钮 → 结果区 → Sync 状态行 → 折叠的 Advanced 子面板（容差 + 技术数值）。**
+**面板自上而下：Compare 按钮 → 结果区 → 折叠的 Advanced 子面板（容差 + 技术数值）。**
+
+> 用户查看原型后的最终裁决：删除插件内的 Sync 状态行。插件在 Sync 开/关时均可工作，当前状态已经由 Blender UV Editor 顶栏表达，面板不重复显示。
 
 为什么是 B：
 
@@ -16,7 +18,7 @@
 - 容差是“设一次就忘”的参数（默认 1e-5 覆盖绝大多数情况），不值得占据主界面首屏 → 移入 `DEFAULT_CLOSED` 子面板。
 - `max UV difference` 这类技术数值（用户明确不想在主界面看到）降级到 Advanced 子面板与状态栏 report，主结果区只留人话结论。
 - 被否方案：
-  - **A（Settings-first，现结构的精修版）**：把很少改动的 Tolerance 和只读的 Sync 状态放在按钮之前，首屏被低频信息占据，每次重复操作都要越过它们。
+  - **A（Settings-first，现结构的精修版）**：把很少改动的 Tolerance 和常驻提示放在按钮之前，首屏被低频信息占据，每次重复操作都要越过它们。
   - **C（Result-first）**：结果横幅置顶强化了“检查工具”语义，但把主动作压到第二屏位；且 NONE 状态下横幅是空壳，浪费最宝贵的顶部空间。适合报表，不适合反复点的工具。
 
 ---
@@ -26,7 +28,7 @@
 | # | 后端能力 | 去向 |
 |---|---------|------|
 | 1 | 比较两个完整选中的 UV 岛 | 主界面：Compare 按钮 |
-| 2 | UV Sync 开/关两种选择来源 | 主界面：只读状态行（按钮下方小字，LINKED/UNLINKED 图标）。**不做成开关**——该开关在 UV 编辑器头部已有，重复提供会产生“结果到底按哪种选择算的”的疑惑 |
+| 2 | UV Sync 开/关两种选择来源 | 不进插件界面。后端自动支持两种状态；当前状态由 Blender UV Editor 顶栏表达 |
 | 3 | 8 种方向关系识别 | 主界面：MATCH 时显示短关系名（映射表见第 3 节） |
 | 4 | 忽略平移/不忽略缩放形变拓扑 | 不进界面（README/文档层面的事） |
 | 5 | tolerance 1e-8…1e-2，默认 1e-5 | 仅 Advanced 子面板（折叠） |
@@ -53,8 +55,6 @@
 | ERROR 第一行（红） | `Cannot compare`（icon `ERROR`） | |
 | Advanced 子面板标题 | `Advanced` | |
 | Tolerance 属性 | `Tolerance` | 现有 prop，原样移入 |
-| Sync 行（开） | `UV Sync on — mesh selection`（icon `LINKED`） | |
-| Sync 行（关） | `UV Sync off — UV selection`（icon `UNLINKED`） | |
 
 ### 3.2 MATCH 第一行：`Match — <短关系名>`
 
@@ -113,7 +113,7 @@
 | 现有元素 | 处置 |
 |---------|------|
 | 常驻 `Select two complete UV islands.` label | **删除**，并入结果区 NONE 态第二行 |
-| `UV Sync: using …` 独立 box | **删除 box**，降级为结果区下方一行小字（不换文案含义，文案改为 `UV Sync on/off — …` 短式） |
+| `UV Sync: using …` 独立 box | **完全删除**。插件自动兼容两种状态，Blender 顶栏已有状态显示 |
 | 主界面 Tolerance box | **移入** Advanced 子面板（`DEFAULT_CLOSED`） |
 | `Last Result` 结果 box 标题行 | **删除**，状态图标直接放在结论文案行 |
 | `textwrap.wrap(message, 38)` 整段消息 | **删除**——它正是 “`(ma…` / `difference 1.13e-07).`” 断行丑态的根源；改为结构化的“结论行 + 可选原因行”，不再显示完整后端句子 |
@@ -147,19 +147,18 @@
 | 2b | MATCH 一行 | `box.label(text=wm.rizum_uv_compare_last_headline, icon='CHECKMARK')` |
 | 2c | NO_MATCH 两行 | `box.label(text="No match", icon='X')`；若 detail 非空：`box.label(text=wm.rizum_uv_compare_last_detail)`（原生无法缩进第二行，直接齐行即可） |
 | 2d | ERROR 两行 | `row = box.row(); row.alert = True; row.label(text="Cannot compare", icon='ERROR')`；detail 非空则 `box.label(text=detail)`（**不加** alert） |
-| 3 | Sync 状态行 `.sync-line` | 开：`layout.label(text="UV Sync on — mesh selection", icon='LINKED')`；关：`layout.label(text="UV Sync off — UV selection", icon='UNLINKED')`。读取 `context.scene.tool_settings.use_uv_select_sync`，只读，不包 box |
-| 4 | Advanced 子面板 | 新建 `UV_PT_rizum_compare_advanced(bpy.types.Panel)`：`bl_parent_id = "UV_PT_rizum_compare"`，`bl_label = "Advanced"`，`bl_options = {'DEFAULT_CLOSED'}`，space/region/category/poll 与主面板相同。Blender 自绘三角与开合状态，不用自定义 disclosure |
-| 4a | Tolerance 行 | 子面板内：`layout.prop(wm, "rizum_uv_compare_tolerance", text="Tolerance")` |
-| 4b | 技术行 | 子面板内：`tech = wm.rizum_uv_compare_last_technical`；`if tech: layout.label(text=tech)` |
+| 3 | Advanced 子面板 | 新建 `UV_PT_rizum_compare_advanced(bpy.types.Panel)`：`bl_parent_id = "UV_PT_rizum_compare"`，`bl_label = "Advanced"`，`bl_options = {'DEFAULT_CLOSED'}`，space/region/category/poll 与主面板相同。Blender 自绘三角与开合状态，不用自定义 disclosure |
+| 3a | Tolerance 行 | 子面板内：`layout.prop(wm, "rizum_uv_compare_tolerance", text="Tolerance")` |
+| 3b | 技术行 | 子面板内：`tech = wm.rizum_uv_compare_last_technical`；`if tech: layout.label(text=tech)` |
 | — | HTML 里的 `RECOMMENDED` 角标、切换器、评审控件、SVG 画布 | 均不进入插件 |
 
 ### 6.2 其余变体（未采用，仅说明结构差异）
 
-- **A**：主面板 draw 顺序为 `layout.label(icon='UV')` 提示 → sync box → tolerance prop → `scale_y=1.3` 按钮 → 结果 box；无子面板。若实现，全部用上表同款调用，仅顺序不同。
-- **C**：结果 box 置顶 → 普通高度按钮（不设 `scale_y`）→ `bl_parent_id` 子面板改名 `Details`，内容 = sync 行 + tolerance + 技术行。
+- **A**：主面板 draw 顺序为 `layout.label(icon='UV')` 提示 → tolerance prop → `scale_y=1.3` 按钮 → 结果 box；无子面板。若实现，全部用上表同款调用，仅顺序不同。
+- **C**：结果 box 置顶 → 普通高度按钮（不设 `scale_y`）→ `bl_parent_id` 子面板改名 `Details`，内容 = tolerance + 技术行。
 
 ### 6.3 明确不做的事
 
 - 不自定义颜色/字体/圆角/阴影/hover 动画；不用 GPU canvas、自定义绘制或图标资源。
 - 不给结果区加绿/黄配色；不试图让 label 自动换行（所有文案已按 ≤40 字符预裁）。
-- 不把 Sync 做成 prop 开关；不在主界面显示任何科学计数法数值。
+- 不显示或控制 Sync；不在主界面显示任何科学计数法数值。

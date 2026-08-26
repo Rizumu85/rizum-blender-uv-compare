@@ -4,7 +4,7 @@
 
 **Exact UV-island comparison for Blender, including mirrored and rotated matches.**
 
-[![Version](https://img.shields.io/badge/version-0.4.4-7c3aed.svg)](https://github.com/Rizumu85/rizum-blender-uv-compare/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.5.0-7c3aed.svg)](https://github.com/Rizumu85/rizum-blender-uv-compare/releases/latest)
 [![Blender](https://img.shields.io/badge/Blender-4.2%2B-f5792a.svg)](https://www.blender.org/)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-2563eb.svg)](LICENSE)
 
@@ -41,9 +41,9 @@ You can also install [`uv_exact_compare.py`](uv_exact_compare.py) as a legacy si
 1. Enter **Edit Mode** on the mesh and open the UV Editor.
 2. Press `N` and open the **UV Compare** tab.
 3. Leave **UV Sync Selection** on or off—the add-on supports both modes.
-4. Select exactly two complete UV islands.
-5. Press **Compare Selected Islands**.
-6. Read the concise persistent result below the button. Repeat whenever needed.
+4. Turn on **Auto Compare** and select exactly two complete UV islands. The result updates automatically whenever the selected pair changes.
+5. While changing selections, invalid intermediate states are ignored and the last result remains visible.
+6. Keep **Auto Compare** off to use **Compare Selected Islands** manually instead. The manual button also remains available in automatic mode.
 
 Tolerance lives in the collapsed **Advanced** sub-panel so the repeat workflow stays compact. Maximum UV difference is intentionally not shown in the interface.
 
@@ -82,9 +82,9 @@ Blender 里两个 UV 岛看起来可以几乎一样，但肉眼很难确认每�
 1. 选中网格进入**编辑模式**，并打开 UV 编辑器。
 2. 按 `N`，进入 **UV Compare** 标签。
 3. **UV Sync Selection（同步选择）**可以开启或关闭，插件支持两种模式。
-4. 完整选中且只选中两个 UV 岛。
-5. 点击 **Compare Selected Islands**。
-6. 按钮下方会保留简洁的上一次结果，可以换一组 UV 后继续点击。
+4. 开启 **Auto Compare**，然后完整选中且只选中两个 UV 岛；每当所选组合变化，结果都会自动更新。
+5. 换岛过程中少于或多于两个岛的中间状态会被忽略，上一次结果会继续保留。
+6. 关闭 **Auto Compare** 即可只使用 **Compare Selected Islands** 手动比较；自动模式开启时也仍可点击手动按钮。
 
 Tolerance 收在默认折叠的 **Advanced** 子面板中；最大 UV 差值不在界面中显示，主界面只保留高频操作需要的信息。
 

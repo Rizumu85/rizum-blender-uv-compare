@@ -120,6 +120,7 @@ def test_panel_state_registration(addon):
     try:
         assert hasattr(bpy.types.WindowManager, "rizum_uv_compare_last_headline")
         assert hasattr(bpy.types.WindowManager, "rizum_uv_compare_last_detail")
+        assert hasattr(bpy.types.WindowManager, "rizum_uv_compare_auto")
         assert not hasattr(bpy.types.WindowManager, "rizum_uv_compare_last_technical")
         assert not hasattr(bpy.types.WindowManager, "rizum_uv_compare_last_result")
         assert addon.UV_PT_rizum_compare_advanced.bl_parent_id == "UV_PT_rizum_compare"
@@ -131,6 +132,9 @@ def test_panel_state_registration(addon):
         assert "No comparison yet" not in panel_source
         assert "Max UV difference" not in inspect.getsource(addon)
         assert "FILE_REFRESH" in panel_source
+        assert "Auto Compare" in panel_source
+        assert 'icon="AUTO"' in panel_source
+        assert "toggle=True" in panel_source
         operator_source = inspect.getsource(addon.UV_OT_rizum_compare_islands.execute)
         assert "self.report" not in operator_source
 
@@ -180,10 +184,84 @@ def test_structured_copy_contract(addon):
     bm.free()
 
 
+def test_auto_compare_mode(addon):
+    mesh = bpy.data.meshes.new("RizumAutoCompareMesh")
+    obj = bpy.data.objects.new("RizumAutoCompareObject", mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    mesh.from_pydata(
+        (
+            (0.0, 0.0, 0.0),
+            (1.0, 0.0, 0.0),
+            (1.0, 1.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (2.0, 0.0, 0.0),
+            (3.0, 0.0, 0.0),
+            (3.0, 1.0, 0.0),
+            (2.0, 1.0, 0.0),
+        ),
+        (),
+        ((0, 1, 2, 3), (4, 5, 6, 7)),
+    )
+    uv_map = mesh.uv_layers.new(name="UVMap")
+    uv_sets = (
+        ((0.0, 0.0), (0.2, 0.0), (0.2, 0.2), (0.0, 0.2)),
+        ((0.4, 0.0), (0.6, 0.0), (0.6, 0.2), (0.4, 0.2)),
+    )
+    for polygon, coordinates in zip(mesh.polygons, uv_sets):
+        for loop_index, coordinate in zip(polygon.loop_indices, coordinates):
+            uv_map.data[loop_index].uv = coordinate
+
+    addon.register()
+    try:
+        for selected in bpy.context.selected_objects:
+            selected.select_set(False)
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.context.scene.tool_settings.use_uv_select_sync = False
+
+        bm = bmesh.from_edit_mesh(mesh)
+        bm.faces.ensure_lookup_table()
+        uv_layer = bm.loops.layers.uv.active
+        set_uv_selected(bm.faces[0], uv_layer, True)
+        set_uv_selected(bm.faces[1], uv_layer, True)
+        bmesh.update_edit_mesh(mesh, loop_triangles=False, destructive=False)
+
+        wm = bpy.context.window_manager
+        wm.rizum_uv_compare_auto = True
+        assert bpy.app.timers.is_registered(addon.auto_compare_timer)
+        assert addon.auto_compare_timer() == addon.AUTO_COMPARE_INTERVAL
+        assert wm.rizum_uv_compare_last_status == "MATCH"
+        assert wm.rizum_uv_compare_last_headline == "Match — Same orientation"
+        assert not addon.auto_compare_current_selection(bpy.context)
+
+        set_uv_selected(bm.faces[1], uv_layer, False)
+        bmesh.update_edit_mesh(mesh, loop_triangles=False, destructive=False)
+        assert not addon.auto_compare_current_selection(bpy.context)
+        assert addon.AUTO_COMPARE_SIGNATURE_KEY not in wm
+
+        set_uv_selected(bm.faces[1], uv_layer, True)
+        bmesh.update_edit_mesh(mesh, loop_triangles=False, destructive=False)
+        assert addon.auto_compare_current_selection(bpy.context)
+
+        wm.rizum_uv_compare_auto = False
+        assert not bpy.app.timers.is_registered(addon.auto_compare_timer)
+    finally:
+        wm = bpy.context.window_manager
+        if getattr(wm, "rizum_uv_compare_auto", False):
+            wm.rizum_uv_compare_auto = False
+        if obj.mode == "EDIT":
+            bpy.ops.object.mode_set(mode="OBJECT")
+        bpy.data.objects.remove(obj, do_unlink=True)
+        bpy.data.meshes.remove(mesh)
+        addon.unregister()
+
+
 addon = load_addon()
 test_sync_selection(addon)
 test_tolerance_without_rounding_bins(addon)
 test_mirror_and_real_deformation(addon)
 test_panel_state_registration(addon)
 test_structured_copy_contract(addon)
+test_auto_compare_mode(addon)
 print("RIZUM_UV_COMPARE_TESTS_OK")

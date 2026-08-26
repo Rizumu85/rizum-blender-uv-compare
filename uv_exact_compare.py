@@ -5,7 +5,7 @@
 bl_info = {
     "name": "Rizum UV Compare",
     "author": "Rizumu85",
-    "version": (0, 4, 4),
+    "version": (0, 5, 0),
     "blender": (4, 2, 0),
     "location": "UV Editor > Sidebar > UV Compare",
     "description": "Compare two UV islands for exact mirrored or rotated matches",
@@ -19,13 +19,15 @@ from typing import NamedTuple
 
 import bmesh
 import bpy
-from bpy.props import EnumProperty, FloatProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, FloatProperty, StringProperty
 
 
 DEFAULT_TOLERANCE = 1.0e-5
 RESULT_REFRESH_SECONDS = 0.4
 RESULT_REFRESH_INTERVAL = 0.1
 RESULT_REFRESH_KEY = "rizum_uv_compare_refresh_started"
+AUTO_COMPARE_INTERVAL = 0.25
+AUTO_COMPARE_SIGNATURE_KEY = "rizum_uv_compare_auto_signature"
 
 TRANSFORMS = (
     ("Same orientation", lambda x, y: (x, y)),
@@ -311,17 +313,31 @@ def compare_islands(island_a, island_b, uv_layer, tolerance):
     )
 
 
-def compare_selected_islands(obj, tolerance, use_uv_select_sync=False):
-    """Return a structured result for the current UV selection."""
+def selected_uv_data(obj, tolerance, use_uv_select_sync=False):
+    """Return the active UV layer and fully selected UV islands."""
     bm = bmesh.from_edit_mesh(obj.data)
     uv_layer = bm.loops.layers.uv.active
+    if uv_layer is None:
+        return None, []
+
+    bm.faces.index_update()
+    islands = selected_uv_islands(
+        bm, uv_layer, tolerance, use_uv_select_sync=use_uv_select_sync
+    )
+    return uv_layer, islands
+
+
+def compare_selected_islands(obj, tolerance, use_uv_select_sync=False):
+    """Return a structured result for the current UV selection."""
+    uv_layer, islands = selected_uv_data(
+        obj,
+        tolerance,
+        use_uv_select_sync=use_uv_select_sync,
+    )
     if uv_layer is None:
         message = "The active mesh has no UV map."
         return CompareResult("ERROR", message, "Cannot compare", message)
 
-    islands = selected_uv_islands(
-        bm, uv_layer, tolerance, use_uv_select_sync=use_uv_select_sync
-    )
     if len(islands) != 2:
         message = f"Select exactly two complete UV islands (found {len(islands)})."
         return CompareResult(
@@ -385,6 +401,94 @@ def begin_result_refresh(wm):
         )
 
 
+def clear_auto_compare_signature(wm):
+    if AUTO_COMPARE_SIGNATURE_KEY in wm:
+        del wm[AUTO_COMPARE_SIGNATURE_KEY]
+
+
+def auto_compare_signature(obj, uv_layer, islands, tolerance, use_uv_select_sync):
+    """Build a stable identity for one complete two-island selection."""
+    if len(islands) != 2:
+        return None
+    face_groups = tuple(
+        sorted(tuple(sorted(face.index for face in island)) for island in islands)
+    )
+    return "|".join(
+        (
+            str(obj.as_pointer()),
+            uv_layer.name,
+            "1" if use_uv_select_sync else "0",
+            format(tolerance, ".17g"),
+            repr(face_groups),
+        )
+    )
+
+
+def auto_compare_current_selection(context):
+    """Compare once when the current valid two-island selection is new."""
+    wm = getattr(context, "window_manager", None)
+    obj = getattr(context, "edit_object", None)
+    if wm is None or obj is None or obj.type != "MESH":
+        if wm is not None:
+            clear_auto_compare_signature(wm)
+        return False
+
+    tolerance = wm.rizum_uv_compare_tolerance
+    use_uv_select_sync = context.scene.tool_settings.use_uv_select_sync
+    uv_layer, islands = selected_uv_data(
+        obj,
+        tolerance,
+        use_uv_select_sync=use_uv_select_sync,
+    )
+    signature = (
+        auto_compare_signature(
+            obj,
+            uv_layer,
+            islands,
+            tolerance,
+            use_uv_select_sync,
+        )
+        if uv_layer is not None
+        else None
+    )
+    if signature is None:
+        clear_auto_compare_signature(wm)
+        return False
+    if wm.get(AUTO_COMPARE_SIGNATURE_KEY) == signature:
+        return False
+
+    wm[AUTO_COMPARE_SIGNATURE_KEY] = signature
+    island_a, island_b = islands
+    result = compare_islands(island_a, island_b, uv_layer, tolerance)
+    store_result(context, result)
+    begin_result_refresh(wm)
+    print(f"Rizum UV Compare (Auto): {result.message} (tolerance {tolerance:g})")
+    return True
+
+
+def auto_compare_timer():
+    context = bpy.context
+    wm = getattr(context, "window_manager", None)
+    if wm is None or not getattr(wm, "rizum_uv_compare_auto", False):
+        return None
+    try:
+        auto_compare_current_selection(context)
+    except (AttributeError, ReferenceError, RuntimeError, ValueError):
+        clear_auto_compare_signature(wm)
+    return AUTO_COMPARE_INTERVAL
+
+
+def update_auto_compare(wm, context):
+    """Start or stop the lightweight selection watcher."""
+    clear_auto_compare_signature(wm)
+    if wm.rizum_uv_compare_auto:
+        if not bpy.app.timers.is_registered(auto_compare_timer):
+            bpy.app.timers.register(auto_compare_timer, first_interval=0.05)
+    elif bpy.app.timers.is_registered(auto_compare_timer):
+        bpy.app.timers.unregister(auto_compare_timer)
+    tag_uv_compare_areas(wm)
+
+
 class UV_OT_rizum_compare_islands(bpy.types.Operator):
     bl_idname = "uv.rizum_compare_islands"
     bl_label = "Compare Selected Islands"
@@ -425,6 +529,14 @@ class UV_PT_rizum_compare(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         wm = context.window_manager
+
+        layout.prop(
+            wm,
+            "rizum_uv_compare_auto",
+            text="Auto Compare",
+            icon="AUTO",
+            toggle=True,
+        )
 
         action = layout.column()
         action.scale_y = 1.3
@@ -489,6 +601,12 @@ CLASSES = (
 
 
 def register():
+    bpy.types.WindowManager.rizum_uv_compare_auto = BoolProperty(
+        name="Auto Compare",
+        description="Automatically compare whenever exactly two UV islands are selected",
+        default=False,
+        update=update_auto_compare,
+    )
     bpy.types.WindowManager.rizum_uv_compare_tolerance = FloatProperty(
         name="Tolerance",
         description="Maximum UV-coordinate difference counted as equal",
@@ -518,17 +636,22 @@ def register():
 
 
 def unregister():
+    if bpy.app.timers.is_registered(auto_compare_timer):
+        bpy.app.timers.unregister(auto_compare_timer)
     if bpy.app.timers.is_registered(result_refresh_timer):
         bpy.app.timers.unregister(result_refresh_timer)
     wm = getattr(bpy.context, "window_manager", None)
-    if wm is not None and RESULT_REFRESH_KEY in wm:
-        del wm[RESULT_REFRESH_KEY]
+    if wm is not None:
+        if RESULT_REFRESH_KEY in wm:
+            del wm[RESULT_REFRESH_KEY]
+        clear_auto_compare_signature(wm)
     for cls in reversed(CLASSES):
         bpy.utils.unregister_class(cls)
     del bpy.types.WindowManager.rizum_uv_compare_last_status
     del bpy.types.WindowManager.rizum_uv_compare_last_detail
     del bpy.types.WindowManager.rizum_uv_compare_last_headline
     del bpy.types.WindowManager.rizum_uv_compare_tolerance
+    del bpy.types.WindowManager.rizum_uv_compare_auto
 
 
 if __name__ == "__main__":

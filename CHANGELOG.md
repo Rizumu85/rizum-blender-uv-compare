@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0 — 2026-08-26
+
+- Added an **Auto Compare** mode that watches for a new pair of two complete selected UV islands.
+- Kept invalid intermediate selections silent while preserving the last result.
+- Deduplicated unchanged selections and kept the manual compare button available.
+- Limited the watcher to a lightweight 0.25-second interval while the mode is enabled.
+
 ## 0.4.4 — 2026-08-26
 
 - Shortened the in-panel result refresh pulse from 1.2 seconds to 0.4 seconds for faster feedback.

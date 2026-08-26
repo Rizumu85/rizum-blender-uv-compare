@@ -258,8 +258,8 @@
 
 var VARIANT_DESC = {
   A: "A — Settings-first: current structure refined (hint + tolerance above the button).",
-  B: "B — Action-first: Compare on top, verdict under it, tolerance/technical number in collapsed Advanced. RECOMMENDED.",
-  C: "C — Result-first: verdict banner on top, Compare below, everything secondary inside a Details disclosure."
+  B: "B — Action-first: Compare on top, a one-line initial hint, and tolerance in collapsed Advanced. RECOMMENDED.",
+  C: "C — Result-first: verdict banner on top, Compare below, and tolerance inside a Details disclosure."
 };
 
 var state = {
@@ -271,7 +271,7 @@ var state = {
   pair: "mirrored",
   tolerance: 1e-5,
   advancedOpen: false,
-  last: null  /* null => NONE; else {status, headline, detail, technical} */
+  last: null  /* null => NONE; else {status, headline, detail} */
 };
 
 function fmtTol(v) {
@@ -283,34 +283,27 @@ function computeResult() {
   var s = state;
   if (!s.hasUVMap) {
     return { status: "ERROR", headline: "Cannot compare",
-             detail: "The active mesh has no UV map.",
-             technical: "The active mesh has no UV map." };
+             detail: "The active mesh has no UV map." };
   }
   if (s.islands !== 2) {
     return { status: "ERROR", headline: "Cannot compare",
-             detail: "Found " + s.islands + " islands, need exactly 2.",
-             technical: "Select exactly two complete UV islands (found " + s.islands + ")." };
+             detail: "Found " + s.islands + " islands, need exactly 2." };
   }
   if (s.pair === "identical") {
-    return { status: "MATCH", headline: "Match — Same orientation",
-             detail: "", technical: "Max UV difference: 1.1e-07" };
+    return { status: "MATCH", headline: "Match — Same orientation", detail: "" };
   }
   if (s.pair === "mirrored") {
-    return { status: "MATCH", headline: "Match — Mirrored horizontally",
-             detail: "", technical: "Max UV difference: 2.4e-06" };
+    return { status: "MATCH", headline: "Match — Mirrored horizontally", detail: "" };
   }
   if (s.pair === "rot180") {
-    return { status: "MATCH", headline: "Match — Rotated 180°",
-             detail: "", technical: "Max UV difference: 0 (exact)" };
+    return { status: "MATCH", headline: "Match — Rotated 180°", detail: "" };
   }
   if (s.pair === "faces") {
     return { status: "NO_MATCH", headline: "No match",
-             detail: "Different face counts (12 vs 10).",
-             technical: "Different face counts: 12 vs 10." };
+             detail: "Different face counts (12 vs 10)." };
   }
   return { status: "NO_MATCH", headline: "No match",
-           detail: "Islands differ beyond tolerance.",
-           technical: "No transform matched within tolerance " + fmtTol(s.tolerance) + "." };
+           detail: "Islands differ beyond tolerance." };
 }
 
 /* --- tiny inline icons (approximate Blender's built-in icon set) --- */
@@ -322,6 +315,7 @@ function icon(name) {
   if (name === "x")       { inner = '<path d="M4 4 L12 12 M12 4 L4 12"/>'; }
   if (name === "error")   { inner = '<path d="M8 2.5 L14.5 13.5 L1.5 13.5 Z"/><path d="M8 7 L8 10.2"/><circle cx="8" cy="12.1" r="0.4" fill="currentColor"/>'; }
   if (name === "question"){ inner = '<circle cx="8" cy="8" r="5.6"/><path d="M6.4 6.4 C6.6 5.2 9.4 5.2 9.6 6.6 C9.7 8 8 8.2 8 9.6"/><circle cx="8" cy="11.6" r="0.4" fill="currentColor"/>'; }
+  if (name === "info")    { inner = '<circle cx="8" cy="8" r="5.6"/><path d="M8 7 L8 11"/><circle cx="8" cy="4.8" r="0.5" fill="currentColor"/>'; }
   if (name === "linked")  { inner = '<path d="M6.5 9.5 L9.5 6.5"/><path d="M7.5 4.5 L9 3 A2.2 2.2 0 0 1 12.1 6.1 L10.6 7.6"/><path d="M8.5 11.5 L7 13 A2.2 2.2 0 0 1 3.9 9.9 L5.4 8.4"/>'; }
   if (name === "unlinked"){ inner = '<path d="M7.5 4.5 L9 3 A2.2 2.2 0 0 1 12.1 6.1 L11.3 6.9"/><path d="M8.5 11.5 L7 13 A2.2 2.2 0 0 1 3.9 9.9 L4.7 9.1"/><path d="M3 3 L13 13"/>'; }
   if (name === "viewzoom"){ inner = '<circle cx="7" cy="7" r="4"/><path d="M10 10 L13.5 13.5"/>'; }
@@ -367,11 +361,6 @@ function toleranceRow() {
          '" spellcheck="false"></span></div>';
 }
 
-function technicalRow() {
-  if (!state.last || !state.last.technical) { return ""; }
-  return '<div class="rowline dim">' + state.last.technical + "</div>";
-}
-
 function subPanel(title, bodyHtml) {
   var open = state.advancedOpen;
   return '<div class="subpanel' + (open ? "" : " closed") + '">' +
@@ -390,15 +379,15 @@ function renderA() {
 
 function renderB() {
   return compareButton(true) +
-         resultBox(true) +
-         subPanel("Advanced", toleranceRow() + technicalRow()) +
+         (state.last ? resultBox(false) : '<div class="hint-label">' + icon("info") + '<span>Results will appear here</span></div>') +
+         subPanel("Advanced", toleranceRow()) +
          '<div class="rowline dim" style="font-size:10px">Recommended layout — see KIMI_UI_DECISION.md<span class="rec-tag">RECOMMENDED</span></div>';
 }
 
 function renderC() {
   return resultBox(true) +
          compareButton(false) +
-         subPanel("Details", toleranceRow() + technicalRow());
+         subPanel("Details", toleranceRow());
 }
 
 function render() {

@@ -4,7 +4,7 @@
 
 **Exact UV-island comparison for Blender, including mirrored and rotated matches.**
 
-[![Version](https://img.shields.io/badge/version-0.2.0-7c3aed.svg)](https://github.com/Rizumu85/rizum-blender-uv-compare/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.3.0-7c3aed.svg)](https://github.com/Rizumu85/rizum-blender-uv-compare/releases/latest)
 [![Blender](https://img.shields.io/badge/Blender-4.2%2B-f5792a.svg)](https://www.blender.org/)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-2563eb.svg)](LICENSE)
 
@@ -40,10 +40,10 @@ You can also install [`uv_exact_compare.py`](uv_exact_compare.py) as a legacy si
 
 1. Enter **Edit Mode** on the mesh and open the UV Editor.
 2. Press `N` and open the **UV Compare** tab.
-3. Turn **UV Sync Selection off**.
+3. Leave **UV Sync Selection** on or off—the add-on supports both modes.
 4. Select exactly two complete UV islands.
 5. Press **Compare Selected Islands**.
-6. Read the persistent result below the button. Repeat whenever needed.
+6. Read the persistent result and measured maximum UV difference below the button. Repeat whenever needed.
 
 The script operates on the active edit mesh. Both islands must be fully selected and use the same face layout to count as an exact match.
 
@@ -77,10 +77,10 @@ Blender 里两个 UV 岛看起来可以几乎一样，但肉眼很难确认每�
 
 1. 选中网格进入**编辑模式**，并打开 UV 编辑器。
 2. 按 `N`，进入 **UV Compare** 标签。
-3. 关闭 **UV Sync Selection（同步选择）**。
+3. **UV Sync Selection（同步选择）**可以开启或关闭，插件支持两种模式。
 4. 完整选中且只选中两个 UV 岛。
 5. 点击 **Compare Selected Islands**。
-6. 按钮下方会保留上一次结果，可以换一组 UV 后继续点击。
+6. 按钮下方会保留上一次结果和测得的最大 UV 差值，可以换一组 UV 后继续点击。
 
 脚本只检查当前正在编辑的网格。两个 UV 岛必须完整选中，而且面布局相同，才可能判定为完全一致。
 

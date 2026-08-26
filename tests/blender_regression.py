@@ -1,0 +1,116 @@
+"""Run with: blender --background --python tests/blender_regression.py"""
+
+import importlib.util
+from pathlib import Path
+import sys
+
+import bmesh
+
+
+ROOT = Path(__file__).resolve().parents[1]
+MODULE_PATH = ROOT / "uv_exact_compare.py"
+
+
+def load_addon():
+    spec = importlib.util.spec_from_file_location("rizum_uv_compare_test", MODULE_PATH)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def build_uv_faces(coordinate_sets):
+    bm = bmesh.new()
+    uv_layer = bm.loops.layers.uv.new("UVMap")
+    faces = []
+    for face_index, coordinates in enumerate(coordinate_sets):
+        verts = [
+            bm.verts.new((float(index), float(face_index), 0.0))
+            for index in range(len(coordinates))
+        ]
+        face = bm.faces.new(verts)
+        for loop, coordinate in zip(face.loops, coordinates):
+            loop[uv_layer].uv = coordinate
+        faces.append(face)
+    return bm, uv_layer, faces
+
+
+def set_uv_selected(face, uv_layer, selected):
+    face.select = selected
+    for vert in face.verts:
+        vert.select = selected
+    for edge in face.edges:
+        edge.select = selected
+    for loop in face.loops:
+        if hasattr(loop, "uv_select_vert"):
+            loop.uv_select_vert = selected
+        else:
+            loop[uv_layer].select = selected
+
+
+def test_sync_selection(addon):
+    square = ((0.0, 0.0), (0.2, 0.0), (0.2, 0.2), (0.0, 0.2))
+    bm, uv_layer, faces = build_uv_faces(
+        (square, tuple((x + 0.4, y) for x, y in square), square)
+    )
+    set_uv_selected(faces[0], uv_layer, True)
+    set_uv_selected(faces[1], uv_layer, True)
+    set_uv_selected(faces[2], uv_layer, False)
+    assert len(addon.selected_uv_islands(bm, uv_layer, 1.0e-5, False)) == 2
+
+    for face in faces[:2]:
+        for loop in face.loops:
+            if hasattr(loop, "uv_select_vert"):
+                loop.uv_select_vert = False
+            else:
+                loop[uv_layer].select = False
+    assert len(addon.selected_uv_islands(bm, uv_layer, 1.0e-5, False)) == 0
+    assert len(addon.selected_uv_islands(bm, uv_layer, 1.0e-5, True)) == 2
+    bm.free()
+
+
+def test_tolerance_without_rounding_bins(addon):
+    island_a = (
+        (0.0, 0.0),
+        (0.100005, 0.0),
+        (0.100005, 0.2),
+        (0.0, 0.2),
+    )
+    island_b = (
+        (0.4, 0.7),
+        (0.5000051125, 0.7),
+        (0.5000051125, 0.9),
+        (0.4, 0.9),
+    )
+    bm, uv_layer, faces = build_uv_faces((island_a, island_b))
+    status, message = addon.compare_islands(
+        {faces[0]}, {faces[1]}, uv_layer, addon.DEFAULT_TOLERANCE
+    )
+    assert status == "MATCH", message
+    assert "Same orientation" in message
+    bm.free()
+
+
+def test_mirror_and_real_deformation(addon):
+    source = ((0.0, 0.0), (0.3, 0.0), (0.2, 0.2), (0.0, 0.1))
+    mirrored = tuple((-x + 0.8, y + 0.4) for x, y in source)
+    deformed = tuple((x * 1.02 + 1.2, y) for x, y in source)
+    bm, uv_layer, faces = build_uv_faces((source, mirrored, deformed))
+    status, message = addon.compare_islands(
+        {faces[0]}, {faces[1]}, uv_layer, addon.DEFAULT_TOLERANCE
+    )
+    assert status == "MATCH", message
+    assert "Mirrored horizontally" in message
+
+    status, message = addon.compare_islands(
+        {faces[0]}, {faces[2]}, uv_layer, addon.DEFAULT_TOLERANCE
+    )
+    assert status == "NO_MATCH", message
+    bm.free()
+
+
+addon = load_addon()
+test_sync_selection(addon)
+test_tolerance_without_rounding_bins(addon)
+test_mirror_and_real_deformation(addon)
+print("RIZUM_UV_COMPARE_TESTS_OK")

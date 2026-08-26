@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 — 2026-08-26
+
+- Redesigned the panel around the frequent compare-and-check workflow.
+- Moved tolerance and maximum UV difference into a collapsed **Advanced** sub-panel.
+- Replaced wrapped technical messages with concise, structured verdicts and reasons.
+- Reduced UV Sync Selection to a compact read-only context line.
+- Added persistent structured result fields for headline, detail and technical information.
+
 ## 0.3.0 — 2026-08-26
 
 - Added support for comparing selections while **UV Sync Selection** is enabled.

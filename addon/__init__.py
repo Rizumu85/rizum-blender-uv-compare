@@ -5,7 +5,7 @@
 bl_info = {
     "name": "Rizum UV Compare",
     "author": "Rizumu85",
-    "version": (0, 3, 0),
+    "version": (0, 4, 0),
     "blender": (4, 2, 0),
     "location": "UV Editor > Sidebar > UV Compare",
     "description": "Compare two UV islands for exact mirrored or rotated matches",
@@ -14,7 +14,7 @@ bl_info = {
 
 from collections import defaultdict, deque
 import math
-import textwrap
+from typing import NamedTuple
 
 import bmesh
 import bpy
@@ -34,12 +34,31 @@ TRANSFORMS = (
     ("Mirrored across X=-Y", lambda x, y: (-y, -x)),
 )
 
+TRANSFORM_DISPLAY_NAMES = {
+    "Same orientation": "Same orientation",
+    "Mirrored horizontally (X)": "Mirrored horizontally",
+    "Mirrored vertically (Y)": "Mirrored vertically",
+    "Rotated 180°": "Rotated 180°",
+    "Rotated 90° counter-clockwise": "Rotated 90° CCW",
+    "Rotated 90° clockwise": "Rotated 90° CW",
+    "Mirrored across X=Y": "Mirrored diagonally (X=Y)",
+    "Mirrored across X=-Y": "Mirrored diagonally (X=-Y)",
+}
+
 RESULT_STATUS_ITEMS = (
     ("NONE", "None", "No comparison has been run"),
     ("MATCH", "Match", "The islands are an exact match"),
     ("NO_MATCH", "No Match", "The islands are not an exact match"),
     ("ERROR", "Error", "The selection cannot be compared"),
 )
+
+
+class CompareResult(NamedTuple):
+    status: str
+    message: str
+    headline: str
+    detail: str
+    technical: str
 
 
 def uv_selected(loop, uv_layer):
@@ -246,46 +265,86 @@ def feature_match_distance(features_a, features_b, tolerance):
 
 
 def compare_islands(island_a, island_b, uv_layer, tolerance):
-    """Compare two UV islands and return ``(status, message)``."""
+    """Compare two UV islands and return a structured result for the panel."""
     if len(island_a) != len(island_b):
-        return "NO_MATCH", f"Different face counts: {len(island_a)} vs {len(island_b)}."
+        message = f"Different face counts: {len(island_a)} vs {len(island_b)}."
+        return CompareResult(
+            "NO_MATCH",
+            message,
+            "No match",
+            f"Different face counts ({len(island_a)} vs {len(island_b)}).",
+            message,
+        )
 
     loop_count_a = sum(len(face.loops) for face in island_a)
     loop_count_b = sum(len(face.loops) for face in island_b)
     if loop_count_a != loop_count_b:
-        return "NO_MATCH", f"Different UV loop counts: {loop_count_a} vs {loop_count_b}."
+        message = f"Different UV loop counts: {loop_count_a} vs {loop_count_b}."
+        return CompareResult(
+            "NO_MATCH",
+            message,
+            "No match",
+            f"Different UV loop counts ({loop_count_a} vs {loop_count_b}).",
+            message,
+        )
 
     features_a = island_features(island_a, uv_layer, TRANSFORMS[0][1])
     for label, transform in TRANSFORMS:
         features_b = island_features(island_b, uv_layer, transform)
         error = feature_match_distance(features_a, features_b, tolerance)
         if error <= tolerance:
-            return "MATCH", f"Exact match: {label} (max UV difference {error:.3g})."
+            message = f"Exact match: {label} (max UV difference {error:.3g})."
+            return CompareResult(
+                "MATCH",
+                message,
+                f"Match — {TRANSFORM_DISPLAY_NAMES[label]}",
+                "",
+                f"Max UV difference: {error:.3g}",
+            )
 
-    return "NO_MATCH", f"Not a match within tolerance {tolerance:g}."
+    message = f"Not a match within tolerance {tolerance:g}."
+    return CompareResult(
+        "NO_MATCH",
+        message,
+        "No match",
+        "Islands differ beyond tolerance.",
+        f"No transform matched within tolerance {tolerance:g}.",
+    )
 
 
 def compare_selected_islands(obj, tolerance, use_uv_select_sync=False):
-    """Return ``(status, message)`` for the current UV selection."""
+    """Return a structured result for the current UV selection."""
     bm = bmesh.from_edit_mesh(obj.data)
     uv_layer = bm.loops.layers.uv.active
     if uv_layer is None:
-        return "ERROR", "The active mesh has no UV map."
+        message = "The active mesh has no UV map."
+        return CompareResult(
+            "ERROR", message, "Cannot compare", message, message
+        )
 
     islands = selected_uv_islands(
         bm, uv_layer, tolerance, use_uv_select_sync=use_uv_select_sync
     )
     if len(islands) != 2:
-        return "ERROR", f"Select exactly two complete UV islands (found {len(islands)})."
+        message = f"Select exactly two complete UV islands (found {len(islands)})."
+        return CompareResult(
+            "ERROR",
+            message,
+            "Cannot compare",
+            f"Found {len(islands)} islands, need exactly 2.",
+            message,
+        )
 
     island_a, island_b = islands
     return compare_islands(island_a, island_b, uv_layer, tolerance)
 
 
-def store_result(context, status, message):
+def store_result(context, result):
     wm = context.window_manager
-    wm.rizum_uv_compare_last_status = status
-    wm.rizum_uv_compare_last_result = message
+    wm.rizum_uv_compare_last_status = result.status
+    wm.rizum_uv_compare_last_headline = result.headline
+    wm.rizum_uv_compare_last_detail = result.detail
+    wm.rizum_uv_compare_last_technical = result.technical
 
 
 class UV_OT_rizum_compare_islands(bpy.types.Operator):
@@ -302,17 +361,17 @@ class UV_OT_rizum_compare_islands(bpy.types.Operator):
     def execute(self, context):
         tolerance = context.window_manager.rizum_uv_compare_tolerance
         use_uv_select_sync = context.scene.tool_settings.use_uv_select_sync
-        status, message = compare_selected_islands(
+        result = compare_selected_islands(
             context.edit_object,
             tolerance,
             use_uv_select_sync=use_uv_select_sync,
         )
-        store_result(context, status, message)
+        store_result(context, result)
 
         report_level = {"MATCH": {"INFO"}, "NO_MATCH": {"WARNING"}, "ERROR": {"ERROR"}}
-        self.report(report_level[status], message)
-        print(f"Rizum UV Compare: {message} (tolerance {tolerance:g})")
-        return {"CANCELLED"} if status == "ERROR" else {"FINISHED"}
+        self.report(report_level[result.status], result.message)
+        print(f"Rizum UV Compare: {result.message} (tolerance {tolerance:g})")
+        return {"CANCELLED"} if result.status == "ERROR" else {"FINISHED"}
 
 
 class UV_PT_rizum_compare(bpy.types.Panel):
@@ -331,36 +390,66 @@ class UV_PT_rizum_compare(bpy.types.Panel):
         wm = context.window_manager
         sync_enabled = context.scene.tool_settings.use_uv_select_sync
 
-        layout.label(text="Select two complete UV islands.", icon="UV")
-
-        mode_box = layout.box()
-        if sync_enabled:
-            mode_box.label(text="UV Sync: using mesh selection", icon="LINKED")
-        else:
-            mode_box.label(text="UV Sync: using UV selection", icon="UNLINKED")
-
-        settings = layout.box()
-        settings.prop(wm, "rizum_uv_compare_tolerance", text="Tolerance")
-
         action = layout.column()
-        action.scale_y = 1.25
-        action.operator("uv.rizum_compare_islands", icon="VIEWZOOM")
+        action.scale_y = 1.3
+        action.operator(
+            "uv.rizum_compare_islands",
+            text="Compare Selected Islands",
+            icon="VIEWZOOM",
+        )
 
         result_box = layout.box()
-        status_icons = {
-            "NONE": "QUESTION",
-            "MATCH": "CHECKMARK",
-            "NO_MATCH": "X",
-            "ERROR": "ERROR",
-        }
-        result_box.label(text="Last Result", icon=status_icons[wm.rizum_uv_compare_last_status])
-        for line in textwrap.wrap(wm.rizum_uv_compare_last_result, width=38):
-            result_box.label(text=line)
+        status = wm.rizum_uv_compare_last_status
+        if status == "NONE":
+            result_box.label(text="No comparison yet.", icon="QUESTION")
+            result_box.label(text="Select two complete UV islands.")
+        elif status == "MATCH":
+            result_box.label(
+                text=wm.rizum_uv_compare_last_headline,
+                icon="CHECKMARK",
+            )
+        elif status == "NO_MATCH":
+            result_box.label(text="No match", icon="X")
+            if wm.rizum_uv_compare_last_detail:
+                result_box.label(text=wm.rizum_uv_compare_last_detail)
+        else:
+            error_row = result_box.row()
+            error_row.alert = True
+            error_row.label(text="Cannot compare", icon="ERROR")
+            if wm.rizum_uv_compare_last_detail:
+                result_box.label(text=wm.rizum_uv_compare_last_detail)
+
+        if sync_enabled:
+            layout.label(text="UV Sync on — mesh selection", icon="LINKED")
+        else:
+            layout.label(text="UV Sync off — UV selection", icon="UNLINKED")
+
+
+class UV_PT_rizum_compare_advanced(bpy.types.Panel):
+    bl_label = "Advanced"
+    bl_idname = "UV_PT_rizum_compare_advanced"
+    bl_parent_id = "UV_PT_rizum_compare"
+    bl_space_type = "IMAGE_EDITOR"
+    bl_region_type = "UI"
+    bl_category = "UV Compare"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        return getattr(context.area, "ui_type", None) == "UV"
+
+    def draw(self, context):
+        layout = self.layout
+        wm = context.window_manager
+        layout.prop(wm, "rizum_uv_compare_tolerance", text="Tolerance")
+        if wm.rizum_uv_compare_last_technical:
+            layout.label(text=wm.rizum_uv_compare_last_technical)
 
 
 CLASSES = (
     UV_OT_rizum_compare_islands,
     UV_PT_rizum_compare,
+    UV_PT_rizum_compare_advanced,
 )
 
 
@@ -373,9 +462,19 @@ def register():
         max=1.0e-2,
         precision=6,
     )
-    bpy.types.WindowManager.rizum_uv_compare_last_result = StringProperty(
-        name="Last Result",
-        default="No comparison yet.",
+    bpy.types.WindowManager.rizum_uv_compare_last_headline = StringProperty(
+        name="Last Headline",
+        default="",
+        options={"HIDDEN"},
+    )
+    bpy.types.WindowManager.rizum_uv_compare_last_detail = StringProperty(
+        name="Last Detail",
+        default="",
+        options={"HIDDEN"},
+    )
+    bpy.types.WindowManager.rizum_uv_compare_last_technical = StringProperty(
+        name="Last Technical Detail",
+        default="",
         options={"HIDDEN"},
     )
     bpy.types.WindowManager.rizum_uv_compare_last_status = EnumProperty(
@@ -392,7 +491,9 @@ def unregister():
     for cls in reversed(CLASSES):
         bpy.utils.unregister_class(cls)
     del bpy.types.WindowManager.rizum_uv_compare_last_status
-    del bpy.types.WindowManager.rizum_uv_compare_last_result
+    del bpy.types.WindowManager.rizum_uv_compare_last_technical
+    del bpy.types.WindowManager.rizum_uv_compare_last_detail
+    del bpy.types.WindowManager.rizum_uv_compare_last_headline
     del bpy.types.WindowManager.rizum_uv_compare_tolerance
 
 

@@ -4,7 +4,7 @@
 
 **Exact UV-island comparison for Blender, including mirrored and rotated matches.**
 
-[![Version](https://img.shields.io/badge/version-0.3.0-7c3aed.svg)](https://github.com/Rizumu85/rizum-blender-uv-compare/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.4.0-7c3aed.svg)](https://github.com/Rizumu85/rizum-blender-uv-compare/releases/latest)
 [![Blender](https://img.shields.io/badge/Blender-4.2%2B-f5792a.svg)](https://www.blender.org/)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-2563eb.svg)](LICENSE)
 
@@ -43,7 +43,9 @@ You can also install [`uv_exact_compare.py`](uv_exact_compare.py) as a legacy si
 3. Leave **UV Sync Selection** on or off—the add-on supports both modes.
 4. Select exactly two complete UV islands.
 5. Press **Compare Selected Islands**.
-6. Read the persistent result and measured maximum UV difference below the button. Repeat whenever needed.
+6. Read the concise persistent result below the button. Repeat whenever needed.
+
+Tolerance and the measured maximum UV difference live in the collapsed **Advanced** sub-panel so the repeat workflow stays compact.
 
 The script operates on the active edit mesh. Both islands must be fully selected and use the same face layout to count as an exact match.
 
@@ -80,7 +82,9 @@ Blender 里两个 UV 岛看起来可以几乎一样，但肉眼很难确认每�
 3. **UV Sync Selection（同步选择）**可以开启或关闭，插件支持两种模式。
 4. 完整选中且只选中两个 UV 岛。
 5. 点击 **Compare Selected Islands**。
-6. 按钮下方会保留上一次结果和测得的最大 UV 差值，可以换一组 UV 后继续点击。
+6. 按钮下方会保留简洁的上一次结果，可以换一组 UV 后继续点击。
+
+Tolerance 和测得的最大 UV 差值收在默认折叠的 **Advanced** 子面板中，主界面只保留高频操作需要的信息。
 
 脚本只检查当前正在编辑的网格。两个 UV 岛必须完整选中，而且面布局相同，才可能判定为完全一致。
 
